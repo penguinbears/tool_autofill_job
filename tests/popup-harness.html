@@ -19,7 +19,7 @@
       <button id="fill" type="button">填充已匹配项</button>
     </section>
     <label class="overwrite"><input id="overwrite" type="checkbox">覆盖</label>
-    <section class="match-action"><button id="match-jobs" type="button">分析当前页岗位匹配度</button></section>
+    <section class="match-action"><button id="match-jobs" type="button">AI分析当前页岗位匹配度</button></section>
     <div id="status"></div>
     <section id="session-panel" class="panel session-panel">
       <span id="session-badge"></span>
@@ -204,7 +204,12 @@
           return { ok: true };
         },
         getURL(path) { return `chrome-extension://test/${path}`; },
-        getManifest() { return { version: "0.12.2" }; },
+        getManifest() {
+          return {
+            version: "0.14.3",
+            optional_host_permissions: ["http://*/*", "https://*/*"]
+          };
+        },
         onMessage: { addListener() {} }
       }
     };

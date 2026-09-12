@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "秋招智能填表助手",
-  "version": "0.14.2",
+  "version": "0.14.3",
   "description": "跨站扫描和填写招聘网页，使用用户配置的 AI 分析岗位匹配度，不自动提交。",
   "permissions": [
     "activeTab",
