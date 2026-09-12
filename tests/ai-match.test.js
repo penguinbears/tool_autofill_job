@@ -30,6 +30,10 @@ assert(result.level === "非常匹配", "score threshold is incorrect");
 assert(ai.levelFor(92, ["学历不满足"]) === "不匹配", "hard blocker should cap the level");
 assert(ai.chatEndpoint("https://api.example.com/v1/") === "https://api.example.com/v1/chat/completions", "endpoint normalization failed");
 assert(ai.responseContent({ choices: [{ message: { content: "ok" } }] }) === "ok", "response extraction failed");
+assert(ai.validateSettingsInput({ baseUrl: "", apiKey: "key", model: "model" }).field === "baseUrl", "missing Base URL was not detected");
+assert(ai.validateSettingsInput({ baseUrl: "https://api.example.com/v1", apiKey: "", model: "model" }).field === "apiKey", "missing API key was not detected");
+assert(ai.validateSettingsInput({ baseUrl: "https://api.example.com/v1", apiKey: "key", model: "" }).field === "model", "missing model was not detected");
+assert(ai.validateSettingsInput({ baseUrl: "https://api.example.com/v1", apiKey: "key", model: "model" }).ok, "valid settings were rejected");
 
 const messages = ai.buildMessages({ prompt: "关注产品经验", skillContent: "按证据评分" }, safeProfile, {
   title: "产品经理",
@@ -39,4 +43,4 @@ const messages = ai.buildMessages({ prompt: "关注产品经验", skillContent: 
 assert(messages.length === 2 && messages[0].content.includes("按证据评分"), "skill content was not included");
 assert(!messages[1].content.includes("token=private"), "job URL query was sent to the model");
 
-console.log("AI match tests passed: 11");
+console.log("AI match tests passed: 15");

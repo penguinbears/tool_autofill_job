@@ -120,6 +120,25 @@
     return /\/chat\/completions$/i.test(value) ? value : `${value}/chat/completions`;
   }
 
+  function validateSettingsInput(input) {
+    const source = input || {};
+    try {
+      chatEndpoint(source.baseUrl);
+    } catch (error) {
+      return { ok: false, field: "baseUrl", message: error.message };
+    }
+    if (!cleanString(source.apiKey, 10000)) {
+      return { ok: false, field: "apiKey", message: "请填写 API Key" };
+    }
+    if (!cleanString(source.model, 300)) {
+      return { ok: false, field: "model", message: "请填写模型名称" };
+    }
+    if (source.skillMode && source.skillMode !== "none" && !cleanString(source.skillContent, 100000)) {
+      return { ok: false, field: "skill", message: "已选择 Skill 来源，但尚未载入内容" };
+    }
+    return { ok: true };
+  }
+
   function messageContent(value) {
     if (typeof value === "string") return value;
     if (Array.isArray(value)) return value.map((item) => item && (item.text || item.content) || "").join("\n");
@@ -175,6 +194,7 @@
     levelFor,
     normalizeResult,
     chatEndpoint,
+    validateSettingsInput,
     responseContent,
     buildMessages,
     stableHash

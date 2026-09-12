@@ -2,7 +2,7 @@
 
 一个本地运行的 Chrome / Edge 浏览器扩展，用候选人档案扫描并填写招聘网站的网申表单。扩展始终保留人工复核环节，不会上传本地文件、处理验证码或点击最终提交按钮。
 
-当前版本：`0.14.1`
+当前版本：`0.14.2`
 
 ## 当前功能
 
@@ -76,7 +76,7 @@
 不依赖浏览器的核心逻辑测试可以直接运行：
 
 ```powershell
-node --test tests/ai-match.test.js tests/history-storage.test.js tests/matcher.test.js tests/semantic-provider.test.js tests/xlsx-export.test.js
+node --test tests/ai-match.test.js tests/ai-settings.test.js tests/history-storage.test.js tests/matcher.test.js tests/semantic-provider.test.js tests/xlsx-export.test.js
 ```
 
 DOM、日期组件和履历上下文测试需要先在本地安装 Playwright，然后运行完整测试集：

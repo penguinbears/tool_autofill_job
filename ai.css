@@ -102,13 +102,15 @@ button.primary { background: #0b7f83; border-color: #0b7f83; color: #fff; }
 .help { margin: 6px 0 0; font-size: 12px; line-height: 1.6; }
 
 #status {
-  margin-top: 18px;
+  margin: 0 0 18px;
   padding: 12px 14px;
   border-radius: 10px;
   background: #e7f1f1;
   color: #24575a;
   font-size: 13px;
 }
+
+#status.saving { background: #edf1f7; color: #445468; }
 
 #status.error { background: #fff0ef; color: #a33a32; }
 

@@ -13,12 +13,27 @@
   const filePanelNode = document.getElementById("file-panel");
   const githubPanelNode = document.getElementById("github-panel");
   const statusNode = document.getElementById("status");
+  const saveButton = document.getElementById("save");
   let skillContent = "";
   let skillName = "";
 
   function setStatus(message, isError) {
     statusNode.textContent = message;
     statusNode.classList.toggle("error", Boolean(isError));
+    statusNode.classList.remove("saving");
+  }
+
+  function focusInvalidField(field) {
+    const fields = {
+      baseUrl: baseUrlNode,
+      apiKey: apiKeyNode,
+      model: modelNode,
+      skill: skillModeNode
+    };
+    const node = fields[field];
+    if (!node) return;
+    node.focus();
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   function updateSkillPanels() {
@@ -107,15 +122,27 @@
   }
 
   async function saveSettings() {
+    saveButton.disabled = true;
+    saveButton.textContent = "保存中…";
+    statusNode.textContent = "正在保存 AI 设置…";
+    statusNode.classList.remove("error");
+    statusNode.classList.add("saving");
     try {
       const baseUrl = baseUrlNode.value.trim();
       const apiKey = apiKeyNode.value.trim();
       const model = modelNode.value.trim();
-      globalThis.JobAutofillAiMatch.chatEndpoint(baseUrl);
-      if (!apiKey) throw new Error("请填写 API Key");
-      if (!model) throw new Error("请填写模型名称");
       const mode = skillModeNode.value;
-      if (mode !== "none" && !skillContent) throw new Error("已选择 Skill 来源，但尚未载入内容");
+      const validation = globalThis.JobAutofillAiMatch.validateSettingsInput({
+        baseUrl,
+        apiKey,
+        model,
+        skillMode: mode,
+        skillContent
+      });
+      if (!validation.ok) {
+        focusInvalidField(validation.field);
+        throw new Error(validation.message);
+      }
       const settings = {
         baseUrl,
         model,
@@ -132,6 +159,9 @@
       setStatus("AI 设置已保存。API Key 仅在当前浏览器会话内有效。");
     } catch (error) {
       setStatus(`保存失败：${error.message || error}`, true);
+    } finally {
+      saveButton.disabled = false;
+      saveButton.textContent = "保存设置";
     }
   }
 
@@ -161,6 +191,6 @@
     promptNode.value = globalThis.JobAutofillAiMatch.DEFAULT_PROMPT;
     setStatus("已恢复默认 Prompt，保存后生效。");
   });
-  document.getElementById("save").addEventListener("click", saveSettings);
+  saveButton.addEventListener("click", saveSettings);
   loadSettings().catch((error) => setStatus(`加载失败：${error.message || error}`, true));
 })();
