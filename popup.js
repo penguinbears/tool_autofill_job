@@ -62,6 +62,16 @@
     return `${url.protocol}//${url.hostname}/*`;
   }
 
+  function assertRuntimeHostPermissionsLoaded() {
+    const manifest = chrome.runtime.getManifest();
+    const optionalHosts = manifest.optional_host_permissions || [];
+    const hasHttp = optionalHosts.includes("http://*/*") || optionalHosts.includes("*://*/*");
+    const hasHttps = optionalHosts.includes("https://*/*") || optionalHosts.includes("*://*/*");
+    if (!hasHttp || !hasHttps) {
+      throw new Error("扩展权限配置尚未生效，请到扩展管理页面点击“重新加载”后再试");
+    }
+  }
+
   async function startJobMatching() {
     matchJobsButton.disabled = true;
     try {
@@ -73,6 +83,7 @@
       if (!settings.baseUrl || !settings.model || !session.aiApiKey) {
         throw new Error("请先打开 AI 页面，填写 Base URL、API Key 和模型名称");
       }
+      assertRuntimeHostPermissionsLoaded();
       const tab = await activeTab();
       if (!tab || !tab.id) throw new Error("没有可用的当前网页");
       await ensureJobListInjected(tab.id);
@@ -96,7 +107,11 @@
       }
       setStatus(`已开始分析 ${response.count} 个岗位。结果会直接显示在当前招聘列表中。`);
     } catch (error) {
-      setStatus(`岗位匹配启动失败：${error.message || error}`, true);
+      const message = String(error && error.message || error);
+      const friendlyMessage = /Only permissions specified in the manifest may be requested/i.test(message)
+        ? "扩展仍在使用旧的权限清单，请到扩展管理页面点击“重新加载”后再试"
+        : message;
+      setStatus(`岗位匹配启动失败：${friendlyMessage}`, true);
     } finally {
       matchJobsButton.disabled = false;
     }
