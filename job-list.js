@@ -34,13 +34,52 @@
     return anchor.closest(selectors) || anchor.parentElement;
   }
 
+  function isMokaListPage() {
+    return location.hostname === "app.mokahr.com" && /#\/jobs(?:[/?]|$)/i.test(location.hash);
+  }
+
+  function discoverMokaJobs(limit) {
+    if (!isMokaListPage()) return [];
+    const seen = new Set();
+    const jobs = [];
+    Array.from(document.querySelectorAll("[class*='card-content-']")).forEach((card) => {
+      if (!visible(card)) return;
+      const titleNode = card.querySelector("[class*='title-'].target-color-container, .target-color-container");
+      const anchor = card.closest("a[href]") || card.querySelector("a[href]");
+      if (!titleNode || !anchor) return;
+      let url;
+      try {
+        url = new URL(anchor.getAttribute("href") || anchor.href, location.href);
+      } catch (error) {
+        return;
+      }
+      if (!/^#\/job\/[a-z0-9-]+(?:[/?]|$)/i.test(url.hash)) return;
+      const normalized = url.href;
+      if (seen.has(normalized)) return;
+      const title = cleanText(titleNode.innerText || titleNode.textContent, 120);
+      if (!title) return;
+      seen.add(normalized);
+      jobs.push({
+        id: idFor(normalized),
+        title,
+        url: normalized,
+        excerpt: cleanText(card.innerText || card.textContent, 3000),
+        score: 100,
+        platform: "moka",
+        anchor,
+        target: titleNode
+      });
+    });
+    return jobs.slice(0, limit || MAX_JOBS);
+  }
+
   function candidateScore(anchor, card, url) {
     const title = cleanText(anchor.innerText || anchor.textContent, 120);
     const cardText = cleanText(card && (card.innerText || card.textContent), 3000);
     if (title.length < 2 || title.length > 120) return -100;
     if (/首页|登录|注册|隐私|帮助|更多|返回|上一页|下一页|联系我们|公司官网/.test(title)) return -100;
     let score = 0;
-    if (/(?:job|jobs|position|recruit|career|campus|post|detail|apply)/i.test(url.pathname)) score += 3;
+    if (/(?:job|jobs|position|recruit|career|campus|post|detail|apply)/i.test(`${url.pathname}${url.hash}`)) score += 3;
     if (/岗位职责|职位描述|工作职责|任职要求|职位要求|岗位要求|招聘类别|工作地点|更新于/.test(cardText)) score += 4;
     if (/工程师|经理|产品|运营|设计|开发|算法|销售|采购|实习|校招|招聘/.test(title)) score += 2;
     if (cardText.length >= 20 && cardText.length <= 3000) score += 1;
@@ -48,6 +87,7 @@
   }
 
   function discoverJobs(limit) {
+    if (isMokaListPage()) return discoverMokaJobs(limit);
     const seen = new Set();
     const candidates = [];
     Array.from(document.querySelectorAll("a[href]")).forEach((anchor) => {
@@ -72,7 +112,8 @@
         url: normalized,
         excerpt: cleanText(card && (card.innerText || card.textContent), 3000),
         score,
-        anchor
+        anchor,
+        target: anchor
       });
     });
     return candidates.sort((left, right) => right.score - left.score).slice(0, limit || MAX_JOBS);
@@ -110,7 +151,7 @@
       event.stopPropagation();
       badge.classList.toggle("job-autofill-match-open");
     });
-    job.anchor.insertAdjacentElement("afterend", badge);
+    (job.target || job.anchor).insertAdjacentElement("afterend", badge);
     return badge;
   }
 
@@ -176,7 +217,8 @@
           id: job.id,
           title: job.title,
           url: job.url,
-          excerpt: job.excerpt
+          excerpt: job.excerpt,
+          platform: job.platform || "generic"
         } });
         if (!response || !response.ok) throw new Error(response && response.error || "后台没有返回结果");
         showResult(job, response.result);
@@ -193,7 +235,7 @@
     if (!message || !message.type) return false;
     if (message.type === "JOB_MATCH_DISCOVER") {
       const jobs = discoverJobs(MAX_JOBS);
-      sendResponse({ ok: true, jobs: jobs.map(({ anchor, ...job }) => job) });
+      sendResponse({ ok: true, jobs: jobs.map(({ anchor, target, ...job }) => job) });
       return false;
     }
     if (message.type === "JOB_MATCH_START") {

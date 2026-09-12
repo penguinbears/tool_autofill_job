@@ -1,7 +1,7 @@
 # 秋招智能填表助手：固定模块字典
 
 > 本文件是讨论需求时的模块命名标准。  
-> 当前对应扩展版本：v0.14.3。模块编号一旦发布便保持稳定；即使按钮文字或代码文件调整，也继续使用原编号。
+> 当前对应扩展版本：v0.14.4。模块编号一旦发布便保持稳定；即使按钮文字或代码文件调整，也继续使用原编号。
 
 ## 最简单的使用方式
 
@@ -58,7 +58,7 @@
 | `CORE-REPEAT-MAP` | 经历记录对应关系 | 根据学校名、公司名等把网页已有记录对应到正确的档案数组项 | `content.js` 的 `assignRepeatIndexes()` |
 | `CORE-CUSTOM` | 自定义必填题 | 将无法归类的必填题按页面标签保存和复用 | `content.js` 的 `customKeyFor()` 与 `additional.custom_answers` |
 | `CORE-SAFETY` | 自动填写安全边界 | 跳过敏感信息、文件控件和提交按钮，默认保留网页已有值 | `content.js` 的 `SKIP_TYPES`、`setField()` |
-| `CORE-JOB-LIST` | 岗位列表识别 | 识别岗位链接，向列表注入匹配徽标和详情浮层 | `job-list.js` |
+| `CORE-JOB-LIST` | 岗位列表识别 | 通过 Moka 专用适配或通用规则识别岗位链接，向列表注入匹配徽标和详情浮层 | `job-list.js` |
 | `CORE-JD-EXTRACT` | 岗位 JD 提取 | 在非活动标签页中加载详情并提取主要文本 | `background.js`、`job-detail.js` |
 | `CORE-AI-MATCH` | AI 岗位匹配 | 对档案脱敏，调用 Chat Completions，校验结果并计算四档等级 | `background.js`、`shared/ai-match.js` |
 
