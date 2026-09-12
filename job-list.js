@@ -1,0 +1,214 @@
+(function () {
+  "use strict";
+
+  if (globalThis.__JOB_AUTOFILL_LIST_LOADED__) return;
+  globalThis.__JOB_AUTOFILL_LIST_LOADED__ = true;
+
+  const MAX_JOBS = 10;
+  const BADGE_PREFIX = "job-autofill-match-";
+  let running = false;
+
+  function cleanText(value, maxLength) {
+    return String(value || "").replace(/\s+/g, " ").trim().slice(0, maxLength || 3000);
+  }
+
+  function visible(element) {
+    if (!element) return false;
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+  }
+
+  function idFor(value) {
+    let hash = 2166136261;
+    const text = String(value || "");
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16);
+  }
+
+  function cardFor(anchor) {
+    const selectors = "article,li,[role='listitem'],[class*='job-item'],[class*='jobItem'],[class*='position-item'],[class*='positionItem'],[class*='card']";
+    return anchor.closest(selectors) || anchor.parentElement;
+  }
+
+  function candidateScore(anchor, card, url) {
+    const title = cleanText(anchor.innerText || anchor.textContent, 120);
+    const cardText = cleanText(card && (card.innerText || card.textContent), 3000);
+    if (title.length < 2 || title.length > 120) return -100;
+    if (/首页|登录|注册|隐私|帮助|更多|返回|上一页|下一页|联系我们|公司官网/.test(title)) return -100;
+    let score = 0;
+    if (/(?:job|jobs|position|recruit|career|campus|post|detail|apply)/i.test(url.pathname)) score += 3;
+    if (/岗位职责|职位描述|工作职责|任职要求|职位要求|岗位要求|招聘类别|工作地点|更新于/.test(cardText)) score += 4;
+    if (/工程师|经理|产品|运营|设计|开发|算法|销售|采购|实习|校招|招聘/.test(title)) score += 2;
+    if (cardText.length >= 20 && cardText.length <= 3000) score += 1;
+    return score;
+  }
+
+  function discoverJobs(limit) {
+    const seen = new Set();
+    const candidates = [];
+    Array.from(document.querySelectorAll("a[href]")).forEach((anchor) => {
+      if (!visible(anchor)) return;
+      let url;
+      try {
+        url = new URL(anchor.href, location.href);
+      } catch (error) {
+        return;
+      }
+      if (!/^https?:$/i.test(url.protocol)) return;
+      url.hash = "";
+      const normalized = url.href;
+      if (seen.has(normalized) || normalized === location.href.split("#")[0]) return;
+      const card = cardFor(anchor);
+      const score = candidateScore(anchor, card, url);
+      if (score < 3) return;
+      seen.add(normalized);
+      candidates.push({
+        id: idFor(normalized),
+        title: cleanText(anchor.innerText || anchor.textContent, 120),
+        url: normalized,
+        excerpt: cleanText(card && (card.innerText || card.textContent), 3000),
+        score,
+        anchor
+      });
+    });
+    return candidates.sort((left, right) => right.score - left.score).slice(0, limit || MAX_JOBS);
+  }
+
+  function ensureStyles() {
+    if (document.getElementById("job-autofill-match-style")) return;
+    const style = document.createElement("style");
+    style.id = "job-autofill-match-style";
+    style.textContent = `
+      .job-autofill-match-badge{position:relative;display:inline-flex;align-items:center;margin-left:8px;padding:3px 8px;border:1px solid #b8c5d1;border-radius:999px;background:#f5f7f9;color:#536273;font:600 12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;cursor:pointer;vertical-align:middle;z-index:2147483000}
+      .job-autofill-match-badge[data-level="非常匹配"]{border-color:#16845b;background:#e8f7f0;color:#0b6845}
+      .job-autofill-match-badge[data-level="匹配"]{border-color:#258a95;background:#e8f5f6;color:#17636c}
+      .job-autofill-match-badge[data-level="部分匹配"]{border-color:#c58a23;background:#fff6df;color:#875b0e}
+      .job-autofill-match-badge[data-level="不匹配"],.job-autofill-match-badge[data-state="error"]{border-color:#c85b57;background:#fff0ef;color:#963d39}
+      .job-autofill-match-detail{display:none;position:absolute;left:0;top:calc(100% + 8px);width:340px;max-height:320px;overflow:auto;padding:12px;border:1px solid #cbd5df;border-radius:10px;background:#fff;color:#25313d;box-shadow:0 12px 32px rgba(22,34,46,.18);white-space:normal;font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;text-align:left;z-index:2147483647}
+      .job-autofill-match-badge:hover .job-autofill-match-detail,.job-autofill-match-badge.job-autofill-match-open .job-autofill-match-detail{display:block}
+      .job-autofill-match-detail strong{display:block;margin:7px 0 2px}.job-autofill-match-detail ul{margin:2px 0 6px;padding-left:18px}
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function badgeFor(job) {
+    ensureStyles();
+    const badgeId = `${BADGE_PREFIX}${job.id}`;
+    let badge = document.getElementById(badgeId);
+    if (badge) return badge;
+    badge = document.createElement("span");
+    badge.id = badgeId;
+    badge.className = "job-autofill-match-badge";
+    badge.dataset.state = "pending";
+    badge.textContent = "等待分析";
+    badge.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      badge.classList.toggle("job-autofill-match-open");
+    });
+    job.anchor.insertAdjacentElement("afterend", badge);
+    return badge;
+  }
+
+  function appendList(container, title, items) {
+    if (!items || !items.length) return;
+    const heading = document.createElement("strong");
+    heading.textContent = title;
+    const list = document.createElement("ul");
+    items.forEach((value) => {
+      const item = document.createElement("li");
+      item.textContent = value;
+      list.appendChild(item);
+    });
+    container.append(heading, list);
+  }
+
+  function showResult(job, result) {
+    const badge = badgeFor(job);
+    badge.textContent = `${result.level} · ${result.score}`;
+    badge.dataset.level = result.level;
+    badge.dataset.state = "complete";
+    const detail = document.createElement("span");
+    detail.className = "job-autofill-match-detail";
+    const summary = document.createElement("span");
+    summary.textContent = result.summary || "暂无分析摘要";
+    detail.appendChild(summary);
+    appendList(detail, "匹配优势", result.strengths);
+    appendList(detail, "待补足", result.gaps);
+    appendList(detail, "硬性阻断", result.hardBlockers);
+    appendList(detail, "判断依据", result.evidence);
+    badge.appendChild(detail);
+  }
+
+  function showError(job, message) {
+    const badge = badgeFor(job);
+    badge.textContent = "分析失败";
+    badge.dataset.state = "error";
+    const detail = document.createElement("span");
+    detail.className = "job-autofill-match-detail";
+    detail.textContent = cleanText(message, 500) || "未知错误";
+    badge.appendChild(detail);
+  }
+
+  function notifyProgress(payload) {
+    chrome.runtime.sendMessage(Object.assign({ type: "JOB_MATCH_PROGRESS" }, payload)).catch(() => {});
+  }
+
+  async function runBatch(inputJobs) {
+    if (running) return;
+    running = true;
+    const jobs = (inputJobs || discoverJobs(MAX_JOBS)).slice(0, MAX_JOBS).map((job) => {
+      const current = discoverJobs(MAX_JOBS).find((candidate) => candidate.id === job.id);
+      return current || job;
+    });
+    jobs.forEach((job) => badgeFor(job));
+    let completed = 0;
+    for (const job of jobs) {
+      const badge = badgeFor(job);
+      badge.textContent = "分析中…";
+      badge.dataset.state = "running";
+      try {
+        const response = await chrome.runtime.sendMessage({ type: "JOB_MATCH_ANALYZE_ONE", job: {
+          id: job.id,
+          title: job.title,
+          url: job.url,
+          excerpt: job.excerpt
+        } });
+        if (!response || !response.ok) throw new Error(response && response.error || "后台没有返回结果");
+        showResult(job, response.result);
+      } catch (error) {
+        showError(job, error && error.message || error);
+      }
+      completed += 1;
+      notifyProgress({ completed, total: jobs.length, done: completed === jobs.length });
+    }
+    running = false;
+  }
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (!message || !message.type) return false;
+    if (message.type === "JOB_MATCH_DISCOVER") {
+      const jobs = discoverJobs(MAX_JOBS);
+      sendResponse({ ok: true, jobs: jobs.map(({ anchor, ...job }) => job) });
+      return false;
+    }
+    if (message.type === "JOB_MATCH_START") {
+      if (running) {
+        sendResponse({ ok: false, error: "岗位匹配任务正在运行" });
+        return false;
+      }
+      const discovered = discoverJobs(MAX_JOBS);
+      const byId = new Map(discovered.map((job) => [job.id, job]));
+      const jobs = (message.jobs || []).map((job) => byId.get(job.id)).filter(Boolean);
+      jobs.forEach((job) => badgeFor(job));
+      sendResponse({ ok: true, count: jobs.length });
+      runBatch(jobs).catch((error) => notifyProgress({ done: true, error: String(error && error.message || error) }));
+      return false;
+    }
+    return false;
+  });
+})();

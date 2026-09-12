@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 设置｜秋招智能填表助手</title>
+  <link rel="stylesheet" href="ai.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">AI MATCHING</p>
+        <h1>岗位匹配 AI</h1>
+        <p>配置 OpenAI-compatible 对话接口、分析 Prompt 和可选 Skill。</p>
+      </div>
+      <button id="save" class="primary" type="button">保存设置</button>
+    </header>
+
+    <section class="card">
+      <label for="base-url">Base URL</label>
+      <input id="base-url" type="url" placeholder="https://api.example.com/v1" autocomplete="url">
+      <p class="help">默认请求 <code>Base URL/chat/completions</code>；也可以填写完整的 Chat Completions 地址。</p>
+
+      <label for="api-key">API Key</label>
+      <input id="api-key" type="password" placeholder="输入后以密文显示" autocomplete="off" spellcheck="false">
+      <p class="help">仅保存在当前浏览器会话中，浏览器重启后需要重新填写。</p>
+
+      <label for="model">模型名称</label>
+      <input id="model" type="text" placeholder="例如：gpt-4.1-mini" autocomplete="off">
+
+      <label for="prompt">Prompt</label>
+      <textarea id="prompt" rows="14" placeholder="填写岗位匹配分析规则"></textarea>
+      <div class="inline-actions">
+        <button id="restore-prompt" type="button">恢复默认 Prompt</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>可选 Skill</h2>
+      <p>Skill 在这里作为额外分析规则文本使用，不会执行其中的脚本或工具命令。</p>
+
+      <label for="skill-mode">Skill 来源</label>
+      <select id="skill-mode">
+        <option value="none">不使用 Skill</option>
+        <option value="file">本地文档</option>
+        <option value="github">GitHub 文件链接</option>
+      </select>
+
+      <div id="file-panel" class="source-panel" hidden>
+        <label for="skill-file">选择 Markdown、TXT 或 JSON 文档</label>
+        <input id="skill-file" type="file" accept=".md,.txt,.json,text/plain,text/markdown,application/json">
+      </div>
+
+      <div id="github-panel" class="source-panel" hidden>
+        <label for="skill-url">GitHub Skill 链接</label>
+        <div class="url-row">
+          <input id="skill-url" type="url" placeholder="https://github.com/owner/repo/blob/main/SKILL.md">
+          <button id="load-skill-url" type="button">读取</button>
+        </div>
+        <p class="help">支持公开仓库、目录、GitHub blob 链接或 raw 文件地址；仓库和目录链接会尝试读取其中的 SKILL.md。</p>
+      </div>
+
+      <label for="skill-preview">已载入内容</label>
+      <textarea id="skill-preview" class="skill-preview" rows="10" readonly placeholder="尚未载入 Skill"></textarea>
+      <p id="skill-meta" class="help"></p>
+    </section>
+
+    <div id="status" role="status">尚未保存。</div>
+
+    <aside>
+      <strong>隐私说明</strong>
+      <p>进行匹配时，插件会把脱敏后的教育、经历和技能，以及岗位 JD 发送到你配置的模型服务商。姓名、电话、邮箱、证件信息、文件路径和 API Key 不会放入 Prompt。</p>
+    </aside>
+  </main>
+  <script src="shared/ai-match.js"></script>
+  <script src="ai.js"></script>
+</body>
+</html>

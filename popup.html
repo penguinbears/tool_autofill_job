@@ -13,7 +13,10 @@
         <h1>秋招智能填表助手</h1>
         <p>本地档案 · 预览后填充 · 不自动提交</p>
       </div>
-      <button id="open-options" class="ghost" type="button">档案</button>
+      <div class="header-actions">
+        <button id="open-ai" class="ghost header-nav-button" type="button">AI</button>
+        <button id="open-options" class="ghost header-nav-button" type="button">档案</button>
+      </div>
     </header>
 
     <section class="actions">
@@ -24,6 +27,10 @@
       <input id="overwrite" type="checkbox">
       覆盖网页中已经存在的内容
     </label>
+
+    <section class="match-action">
+      <button id="match-jobs" type="button">分析当前页岗位匹配度</button>
+    </section>
 
     <div id="status" role="status">请先导入候选人档案。</div>
     <section id="summary" hidden>

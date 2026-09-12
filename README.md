@@ -2,7 +2,7 @@
 
 一个本地运行的 Chrome / Edge 浏览器扩展，用候选人档案扫描并填写招聘网站的网申表单。扩展始终保留人工复核环节，不会上传本地文件、处理验证码或点击最终提交按钮。
 
-当前版本：`0.13.2`
+当前版本：`0.14.0`
 
 ## 当前功能
 
@@ -16,6 +16,9 @@
 - 填写后回读网页值，区分验证成功、保留原值、资料缺失和验证失败。
 - 将无法识别的必填题保存为可复用的自定义答案。
 - 自动或手动记录投递历史，支持编辑、分类、筛选、排序和导出 Excel。
+- 在招聘列表页识别最多 10 个岗位，逐条打开详情页并提取 JD。
+- 使用用户配置的 OpenAI-compatible 接口分析岗位匹配度，并在原列表中显示四档结果和详细理由。
+- 提供独立 AI 页面配置 Base URL、API Key、模型、Prompt，以及本地文档或 GitHub Skill。
 
 更细的模块边界见 [modules.md](modules.md)，产品功能和后续需求见 [SPEC.md](SPEC.md)。
 
@@ -36,6 +39,15 @@
 6. 点击“填充已匹配项”，逐项复核网页中的实际结果。
 7. 手动上传简历、处理验证码并提交申请。
 
+### 岗位匹配
+
+1. 点击弹窗右上角的“AI”，填写 Base URL、API Key、模型名称和 Prompt。
+2. 如需额外分析规则，可选择本地 Markdown/TXT/JSON 文档，或填写公开 GitHub 仓库、目录、SKILL.md 文件链接。
+3. 回到岗位列表页，打开扩展并点击“分析当前页岗位匹配度”。
+4. 首次使用时确认招聘网站和模型接口的临时访问权限。
+5. 插件会依次在非活动标签页中读取最多 10 个岗位，并把“非常匹配／匹配／部分匹配／不匹配”写回列表。
+6. 悬停匹配结果查看详情；点击结果可固定或收起详情。
+
 浏览器安全策略要求首次绑定档案文件时由用户亲自选择；扩展不能静默选择本地简历或其他文件。
 
 ## 候选人档案
@@ -53,6 +65,9 @@
 
 - 候选人档案、页面扫描结果、投递历史导出和本地密钥均被忽略。
 - 扩展只在用户操作后临时访问当前页面，目前不申请持续读取所有网站的权限。
+- 岗位分析仅在用户确认后申请对应招聘网站和模型接口的运行时权限。
+- API Key 只保存在 `chrome.storage.session`，不会传给招聘网页，浏览器重启后自动清除。
+- 发送给模型的档案会排除姓名、电话、邮箱、证件信息、文件路径等无关隐私字段。
 - 不填写密码、文件选择器、证件号、银行卡等敏感字段。
 - 不自动点击最终提交按钮。
 
@@ -61,7 +76,7 @@
 不依赖浏览器的核心逻辑测试可以直接运行：
 
 ```powershell
-node --test tests/history-storage.test.js tests/matcher.test.js tests/semantic-provider.test.js tests/xlsx-export.test.js
+node --test tests/ai-match.test.js tests/history-storage.test.js tests/matcher.test.js tests/semantic-provider.test.js tests/xlsx-export.test.js
 ```
 
 DOM、日期组件和履历上下文测试需要先在本地安装 Playwright，然后运行完整测试集：
@@ -78,9 +93,14 @@ node --test tests/*.test.js
 
 ```text
 manifest.json                  扩展清单
+background.js                 JD 获取、模型调用和匹配缓存
 popup.*                       扫描、填充与投递历史界面
 options.*                     候选人档案编辑器
+ai.*                          AI、Prompt 和 Skill 设置页
 content.js                    页面识别、填写和验证
+job-list.js                   岗位列表识别与匹配结果注入
+job-detail.js                 岗位详情页 JD 提取
+shared/ai-match.js            档案脱敏、Prompt 和模型结果校验
 shared/profile.js             档案默认值、迁移和校验
 shared/matcher.js             字段语义匹配
 shared/storage.js             档案与投递历史存储
@@ -93,7 +113,9 @@ tests/                        自动化测试和网页夹具
 
 - 招聘网站的自绘组件和动态页面结构差异很大，新网站可能需要单独适配。
 - 当前飞书招聘真实页面受浏览器安全策略影响，日期组件尚未完成真实环境验证。
-- 现有语义模型接口默认关闭；当前版本不包含在线模型、后台服务或网络请求。
+- 岗位匹配当前只支持 OpenAI-compatible Chat Completions 接口。
+- 通用岗位链接和 JD 识别规则无法覆盖所有网站；没有标准链接或使用复杂虚拟列表的网站需要单独适配。
+- 本地 Skill 当前支持 Markdown、TXT 和 JSON；不会执行 Skill 中的脚本或工具调用。
 - 文件上传、验证码和最终提交必须由用户完成。
 
 遇到不兼容的网站时，请提供对应控件截图以及可见的网页选项信息。

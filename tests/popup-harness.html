@@ -9,13 +9,17 @@
   <main>
     <header>
       <div><h1>秋招智能填表助手</h1><p>测试</p></div>
-      <button id="open-options" type="button">档案</button>
+      <div>
+        <button id="open-ai" type="button">AI</button>
+        <button id="open-options" type="button">档案</button>
+      </div>
     </header>
     <section class="actions">
       <button id="scan" type="button">扫描当前页</button>
       <button id="fill" type="button">填充已匹配项</button>
     </section>
     <label class="overwrite"><input id="overwrite" type="checkbox">覆盖</label>
+    <section class="match-action"><button id="match-jobs" type="button">分析当前页岗位匹配度</button></section>
     <div id="status"></div>
     <section id="summary" hidden>
       <div class="metrics">
@@ -149,6 +153,10 @@
           async set(value) {
             Object.assign(globalThis.__memoryStorage, value);
           }
+        },
+        session: {
+          async get() { return {}; },
+          async set() {}
         }
       },
       tabs: {
@@ -165,8 +173,10 @@
         async create() {}
       },
       scripting: { async executeScript() {} },
+      permissions: { async request() { return true; } },
       runtime: {
         async openOptionsPage() {},
+        getURL(path) { return `chrome-extension://test/${path}`; },
         getManifest() { return { version: "0.12.2" }; },
         onMessage: { addListener() {} }
       }

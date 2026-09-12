@@ -20,6 +20,7 @@
   const historySortNode = document.getElementById("history-sort");
   const historyCountNode = document.getElementById("history-count");
   const historyEmptyNode = document.getElementById("history-empty");
+  const matchJobsButton = document.getElementById("match-jobs");
   let currentProfile = null;
   let allHistory = [];
   let historyFilter = "全部";
@@ -46,6 +47,59 @@
         "content.js"
       ]
     });
+  }
+
+  async function ensureJobListInjected(tabId) {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["job-list.js"]
+    });
+  }
+
+  function permissionOrigin(rawUrl) {
+    const url = new URL(rawUrl);
+    if (!/^https?:$/i.test(url.protocol)) throw new Error("仅支持 HTTP 或 HTTPS 地址");
+    return `${url.protocol}//${url.hostname}/*`;
+  }
+
+  async function startJobMatching() {
+    matchJobsButton.disabled = true;
+    try {
+      const [local, session] = await Promise.all([
+        chrome.storage.local.get(["aiSettings"]),
+        chrome.storage.session.get(["aiApiKey"])
+      ]);
+      const settings = local.aiSettings || {};
+      if (!settings.baseUrl || !settings.model || !session.aiApiKey) {
+        throw new Error("请先打开 AI 页面，填写 Base URL、API Key 和模型名称");
+      }
+      const tab = await activeTab();
+      if (!tab || !tab.id) throw new Error("没有可用的当前网页");
+      await ensureJobListInjected(tab.id);
+      const discovered = await chrome.tabs.sendMessage(tab.id, { type: "JOB_MATCH_DISCOVER" });
+      const jobs = discovered && discovered.jobs || [];
+      if (!jobs.length) throw new Error("当前页面没有识别到岗位详情链接");
+
+      const origins = Array.from(new Set([
+        permissionOrigin(settings.baseUrl),
+        ...jobs.map((job) => permissionOrigin(job.url))
+      ]));
+      const granted = await chrome.permissions.request({ origins });
+      if (!granted) throw new Error("未获得读取岗位页面或调用模型接口的权限");
+
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        type: "JOB_MATCH_START",
+        jobs
+      });
+      if (!response || !response.ok || !response.count) {
+        throw new Error(response && response.error || "岗位分析任务没有启动");
+      }
+      setStatus(`已开始分析 ${response.count} 个岗位。结果会直接显示在当前招聘列表中。`);
+    } catch (error) {
+      setStatus(`岗位匹配启动失败：${error.message || error}`, true);
+    } finally {
+      matchJobsButton.disabled = false;
+    }
   }
 
   function labelFor(field) {
@@ -625,12 +679,16 @@
 
   document.getElementById("scan").addEventListener("click", () => send("JOB_AUTOFILL_SCAN"));
   document.getElementById("fill").addEventListener("click", () => send("JOB_AUTOFILL_FILL"));
+  matchJobsButton.addEventListener("click", startJobMatching);
   addHistoryButton.addEventListener("click", showHistoryAddForm);
   exportHistoryButton.addEventListener("click", exportHistoryWorkbook);
   historyAddForm.addEventListener("submit", saveManualHistory);
   document.getElementById("cancel-add-history").addEventListener("click", resetHistoryAddForm);
   historySortNode.addEventListener("change", renderHistory);
   document.getElementById("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());
+  document.getElementById("open-ai").addEventListener("click", () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("ai.html") });
+  });
   document.getElementById("bind-json").addEventListener("click", async () => {
     try {
       const bound = await globalThis.JobAutofillStorage.bindProfileFile();
@@ -664,6 +722,14 @@
   chrome.runtime.onMessage.addListener((message) => {
     if (message && message.type === "JOB_AUTOFILL_RECORD") {
       loadAndRenderHistory();
+    } else if (message && message.type === "JOB_MATCH_PROGRESS") {
+      if (message.error) {
+        setStatus(`岗位分析失败：${message.error}`, true);
+      } else if (message.done) {
+        setStatus(`岗位匹配分析完成：${message.completed}/${message.total}。`);
+      } else {
+        setStatus(`岗位匹配分析中：${message.completed}/${message.total}。`);
+      }
     }
   });
 

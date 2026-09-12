@@ -1,7 +1,7 @@
 # 秋招智能填表助手：固定模块字典
 
 > 本文件是讨论需求时的模块命名标准。  
-> 当前对应扩展版本：v0.13.3。模块编号一旦发布便保持稳定；即使按钮文字或代码文件调整，也继续使用原编号。
+> 当前对应扩展版本：v0.14.0。模块编号一旦发布便保持稳定；即使按钮文字或代码文件调整，也继续使用原编号。
 
 ## 最简单的使用方式
 
@@ -32,6 +32,8 @@
 |---|---|---|---|---|
 | `UI-POPUP` | 插件弹窗外壳 | 点击 Edge 工具栏中的插件图标 | 弹窗整体布局、状态栏和各子模块排列 | `popup.html`、`popup.css`、`popup.js` |
 | `UI-ACTIONS` | 扫描与填充操作区 | 弹窗顶部“扫描当前页 / 填充已匹配项” | 发起扫描、填写和覆盖已有值 | `popup.html`、`popup.js` |
+| `UI-MATCH` | 岗位匹配入口 | 弹窗状态栏上方“分析当前页岗位匹配度” | 识别当前列表并启动岗位匹配 | `popup.html`、`popup.js` |
+| `UI-AI` | AI 设置页面 | 点击弹窗右上角“AI” | 配置 Base URL、API Key、模型、Prompt 和 Skill | `ai.html`、`ai.css`、`ai.js` |
 | `UI-SUMMARY` | 字段扫描结果区 | 弹窗中的“可匹配 / 可填写 / 缺资料”及字段列表 | 显示识别结果和档案字段路径 | `popup.js` 的 `render()` |
 | `UI-MISSING` | 缺失资料补填区 | 弹窗中的“需要补填” | 直接编辑缺失资料并自动保存至档案和已绑定 JSON | `popup.js` 的 `createEditor()`、`persistField()` |
 | `UI-ATTENTION` | 人工处理提示区 | 弹窗中的“需要你处理” | 显示资料冲突、下拉失败、文件上传等提示 | `popup.js` 的 `renderAttention()` |
@@ -56,6 +58,9 @@
 | `CORE-REPEAT-MAP` | 经历记录对应关系 | 根据学校名、公司名等把网页已有记录对应到正确的档案数组项 | `content.js` 的 `assignRepeatIndexes()` |
 | `CORE-CUSTOM` | 自定义必填题 | 将无法归类的必填题按页面标签保存和复用 | `content.js` 的 `customKeyFor()` 与 `additional.custom_answers` |
 | `CORE-SAFETY` | 自动填写安全边界 | 跳过敏感信息、文件控件和提交按钮，默认保留网页已有值 | `content.js` 的 `SKIP_TYPES`、`setField()` |
+| `CORE-JOB-LIST` | 岗位列表识别 | 识别岗位链接，向列表注入匹配徽标和详情浮层 | `job-list.js` |
+| `CORE-JD-EXTRACT` | 岗位 JD 提取 | 在非活动标签页中加载详情并提取主要文本 | `background.js`、`job-detail.js` |
+| `CORE-AI-MATCH` | AI 岗位匹配 | 对档案脱敏，调用 Chat Completions，校验结果并计算四档等级 | `background.js`、`shared/ai-match.js` |
 
 ## 三、标准档案与持久化模块
 
@@ -66,6 +71,7 @@
 | `DATA-MATCH-RULES` | 字段别名规则 | 维护网页文字到档案路径的同义词映射 | `shared/matcher.js` |
 | `DATA-STORAGE` | 档案存储与 JSON 同步 | 保存浏览器档案、绑定磁盘 JSON、管理写入权限 | `shared/storage.js` 的档案相关函数 |
 | `DATA-PAGE-MAP` | 当前页面字段清单 | 记录已分析网页的字段、冲突和人工确认项 | `current-page-fields.json` |
+| `DATA-AI-SETTINGS` | AI 设置与匹配缓存 | 保存非密钥设置、会话级 API Key 和最多 100 条匹配缓存 | `ai.js`、`background.js` |
 
 ## 四、投递记录模块
 
@@ -171,10 +177,15 @@ job-application-autofill/
 ├── modules.md                    # 本模块字典
 ├── README.md                     # 安装与使用说明
 ├── manifest.json                 # Edge / Chrome 扩展清单
+├── background.js                # 岗位详情读取、模型调用和缓存
 ├── popup.html / .css / .js       # 插件弹窗及投递历史界面
 ├── options.html / .css / .js     # 候选人档案页面
+├── ai.html / .css / .js          # AI、Prompt 与 Skill 设置页面
 ├── content.js                    # 网页扫描、填写、下拉、日期和重复区块
+├── job-list.js                   # 岗位列表和匹配结果界面
+├── job-detail.js                 # JD 文本提取
 ├── shared/
+│   ├── ai-match.js               # 档案脱敏和匹配结果规范
 │   ├── matcher.js                # 字段别名和匹配规则
 │   ├── profile.js                # 档案默认结构、迁移与校验
 │   ├── storage.js                # 档案同步与投递记录存储
