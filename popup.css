@@ -114,6 +114,54 @@ button:disabled {
   font-size: 13px;
 }
 
+.session-panel {
+  background: #fbfcff;
+}
+
+.session-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.session-badge.active,
+.session-badge.logged-in {
+  background: #e8f7ef;
+  color: #18794e;
+}
+
+.session-badge.logged-out,
+.session-badge.error {
+  background: #fff0ef;
+  color: #b42318;
+}
+
+.session-badge.unknown,
+.session-badge.checking {
+  background: #eef1f5;
+  color: #667085;
+}
+
+.session-detail {
+  min-height: 30px;
+  margin-top: 9px;
+  color: #536273;
+  line-height: 1.5;
+}
+
+.session-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.session-actions button {
+  width: 100%;
+}
+
 .metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
