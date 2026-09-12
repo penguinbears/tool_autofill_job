@@ -1,0 +1,134 @@
+:root {
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #14202b;
+  background: #f2f5f7;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; }
+
+main {
+  width: min(1180px, calc(100% - 40px));
+  margin: 42px auto;
+}
+
+header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #0b7f83;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
+h1 { margin: 0; font-size: clamp(28px, 4vw, 46px); }
+h2 { font-size: 18px; }
+p { color: #657283; }
+
+.header-actions, .toolbar, .toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.summary-item {
+  border: 1px solid #dbe1e7;
+  border-radius: 10px;
+  background: #fff;
+  padding: 12px 14px;
+  color: #657283;
+  font-size: 12px;
+}
+
+.summary-item strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #173042;
+  font-size: 18px;
+}
+
+.summary-item.warn {
+  border-color: #e8cf9c;
+  background: #fff9ec;
+}
+
+button, .button {
+  border: 1px solid #c7d0da;
+  border-radius: 8px;
+  background: #fff;
+  color: #203040;
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+button.primary { background: #0b7f83; border-color: #0b7f83; color: #fff; }
+button.danger { color: #a33a32; }
+#import-file { display: none; }
+
+.editor-card {
+  margin-top: 26px;
+  border: 1px solid #dbe1e7;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(32, 48, 64, .08);
+  overflow: hidden;
+}
+
+.toolbar {
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e3e8ed;
+}
+
+#status { color: #637183; font-size: 13px; }
+
+#file-status {
+  margin: 4px 0 0;
+  font-size: 11px;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 62vh;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  padding: 20px;
+  color: #173042;
+  background: #fbfcfd;
+  font: 13px/1.65 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+aside {
+  margin-top: 18px;
+  padding: 16px 20px;
+  border-left: 4px solid #0b7f83;
+  background: #e7f1f1;
+}
+
+aside h2 { margin: 0; }
+aside ul { margin-bottom: 0; color: #4d5d69; line-height: 1.8; }
+
+@media (max-width: 760px) {
+  main { width: min(100% - 24px, 1180px); margin: 22px auto; }
+  header { align-items: flex-start; flex-direction: column; }
+  .toolbar { align-items: flex-start; flex-direction: column; }
+  .profile-summary { grid-template-columns: 1fr 1fr; }
+}

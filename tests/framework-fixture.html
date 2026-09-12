@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>主流组件兼容测试</title>
+  <style>
+    body { font-family: sans-serif; padding: 24px; }
+    .ant-form-item, .el-form-item, .arco-form-item { margin: 18px 0; }
+    .ant-select, .el-select, .arco-select {
+      display: block;
+      width: 320px;
+      min-height: 34px;
+      border: 1px solid #aaa;
+      padding: 6px;
+    }
+    .test-dropdown {
+      position: fixed;
+      z-index: 10;
+      background: white;
+      border: 1px solid #888;
+      padding: 4px;
+    }
+    [role="option"] { padding: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <pre id="harness-results">RUNNING</pre>
+  <form class="ant-form">
+    <div class="ant-form-item">
+      <div class="ant-form-item-label">
+        <label class="ant-form-item-required">最高学历</label>
+      </div>
+      <div id="degree" class="ant-select">
+        <div class="ant-select-selector">
+          <span class="ant-select-selection-placeholder">请选择</span>
+          <input class="ant-select-selection-search-input" role="combobox">
+        </div>
+      </div>
+    </div>
+
+    <div class="ant-form-item">
+      <div class="ant-form-item-label">
+        <label class="ant-form-item-required">意向工作地点</label>
+      </div>
+      <div id="location" class="ant-select ant-select-multiple">
+        <div class="ant-select-selector">
+          <span class="ant-select-selection-placeholder">请选择</span>
+          <input class="ant-select-selection-search-input" role="combobox">
+        </div>
+      </div>
+    </div>
+
+    <div class="el-form-item is-required">
+      <label class="el-form-item__label">当前所在城市</label>
+      <div id="city" class="el-select">
+        <div class="el-select__wrapper">
+          <span class="el-select__placeholder">请选择</span>
+          <input class="el-select__input">
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <script>
+    window.__jobAutofillListeners = [];
+    window.chrome = {
+      runtime: {
+        async sendMessage() {},
+        onMessage: {
+          addListener(listener) {
+            window.__jobAutofillListeners.push(listener);
+          }
+        }
+      }
+    };
+    window.JobAutofillStorage = {
+      async addApplicationRecord() {
+        return [];
+      }
+    };
+
+    const optionMap = {
+      degree: ["本科", "硕士"],
+      location: ["北京", "上海", "杭州", "深圳"],
+      city: ["上海", "北京", "杭州"]
+    };
+
+    document.addEventListener("click", (event) => {
+      const select = event.target.closest && event.target.closest(".ant-select,.el-select,.arco-select");
+      if (!select) return;
+      document.querySelectorAll(".test-dropdown").forEach((node) => node.remove());
+      const dropdown = document.createElement("div");
+      dropdown.className = "test-dropdown";
+      (optionMap[select.id] || []).forEach((value) => {
+        const option = document.createElement("div");
+        option.setAttribute("role", "option");
+        option.className = select.classList.contains("el-select")
+          ? "el-select-dropdown__item"
+          : "ant-select-item-option";
+        option.textContent = value;
+        option.addEventListener("click", (optionEvent) => {
+          optionEvent.stopPropagation();
+          select.querySelectorAll("[class*='placeholder']").forEach((node) => node.remove());
+          if (select.classList.contains("ant-select-multiple")) {
+            if (!Array.from(select.querySelectorAll(".ant-select-selection-item"))
+              .some((node) => node.textContent === value)) {
+              const selected = document.createElement("span");
+              selected.className = "ant-select-selection-item";
+              selected.textContent = value;
+              select.querySelector(".ant-select-selector").prepend(selected);
+            }
+          } else {
+            const className = select.classList.contains("el-select")
+              ? "el-select__selected-item"
+              : "ant-select-selection-item";
+            let selected = select.querySelector(`.${className}`);
+            if (!selected) {
+              selected = document.createElement("span");
+              selected.className = className;
+              select.prepend(selected);
+            }
+            selected.textContent = value;
+            dropdown.remove();
+          }
+        });
+        dropdown.appendChild(option);
+      });
+      document.body.appendChild(dropdown);
+    });
+
+    const loadScript = (source) => new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = source;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+    const send = (message) => new Promise((resolve) => {
+      window.__jobAutofillListeners[0](message, null, resolve);
+    });
+
+    (async () => {
+      await loadScript("../shared/profile.js?v=0.12.0");
+      await loadScript("../shared/matcher.js?v=0.12.0");
+      await loadScript("../content.js?v=0.12.0b");
+      const profile = {
+        personal: {
+          highest_degree: "硕士",
+          current_city: "北京"
+        },
+        application: {
+          first_choice_location: "北京",
+          desired_locations: ["北京", "上海", "杭州"],
+          location_policy: {
+            single_select: "first_available",
+            multi_select: "all_preferred_available",
+            free_text_separator: "/"
+          }
+        },
+        additional: { custom_answers: {} },
+        autofill: { repeat_sections: { education: 0, work_experience: 0 } }
+      };
+      const scan = await send({ type: "JOB_AUTOFILL_SCAN", profile });
+      const fill = await send({ type: "JOB_AUTOFILL_FILL", profile, overwrite: false });
+      const labels = scan.fields.map((field) => field.descriptor.label);
+      const selectedLocations = Array.from(
+        document.querySelectorAll("#location .ant-select-selection-item")
+      ).map((node) => node.textContent);
+      const checks = {
+        exactly_three_controls: scan.fields.length === 3,
+        framework_labels_detected:
+          labels.includes("最高学历") &&
+          labels.includes("意向工作地点") &&
+          labels.includes("当前所在城市"),
+        framework_required_detected: scan.fields.every((field) => field.descriptor.required),
+        degree_filled:
+          document.querySelector("#degree .ant-select-selection-item")?.textContent === "硕士",
+        location_multi_filled:
+          ["北京", "上海", "杭州"].every((city) => selectedLocations.includes(city)),
+        element_select_filled:
+          document.querySelector("#city .el-select__selected-item")?.textContent === "北京",
+        no_submit: true,
+        fill_ok: fill.ok === true
+      };
+      const passed = Object.values(checks).every(Boolean);
+      document.body.dataset.testStatus = passed ? "passed" : "failed";
+      document.getElementById("harness-results").textContent = JSON.stringify({
+        passed,
+        checks,
+        labels,
+        selectedLocations,
+        statuses: fill.results.map((field) => ({
+          label: field.descriptor.label,
+          status: field.status
+        }))
+      }, null, 2);
+    })().catch((error) => {
+      document.body.dataset.testStatus = "failed";
+      document.getElementById("harness-results").textContent = JSON.stringify({
+        passed: false,
+        error: String(error && error.stack || error)
+      }, null, 2);
+    });
+  </script>
+</body>
+</html>

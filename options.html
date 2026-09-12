@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>候选人标准档案</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">LOCAL PROFILE</p>
+        <h1>候选人标准档案</h1>
+        <p>档案仅保存在你的浏览器本地。建议保留一份 JSON 备份，并在每次投递前检查。</p>
+      </div>
+      <div class="header-actions">
+        <button id="bind-json" class="primary" type="button">绑定并同步 JSON</button>
+        <label class="button" for="import-file">导入 JSON</label>
+        <input id="import-file" type="file" accept=".json,application/json">
+        <button id="export" type="button">导出备份</button>
+      </div>
+    </header>
+
+    <section id="profile-summary" class="profile-summary" aria-live="polite"></section>
+
+    <section class="editor-card">
+      <div class="toolbar">
+        <div>
+          <span id="status" role="status">尚未保存</span>
+          <p id="file-status">磁盘 JSON 尚未绑定。</p>
+        </div>
+        <div>
+          <button id="reset" class="danger" type="button">恢复空白模板</button>
+          <button id="save" class="primary" type="button">校验并保存</button>
+        </div>
+      </div>
+      <textarea id="editor" spellcheck="false" aria-label="候选人档案 JSON"></textarea>
+    </section>
+
+    <aside>
+      <h2>安全边界</h2>
+      <ul>
+        <li>首次点击“绑定并同步 JSON”选择文件后，弹窗补填会同步写入该文件。</li>
+        <li>扩展不会点击提交、预览提交或确认投递。</li>
+        <li>身份证、护照、银行卡等敏感字段默认不填。</li>
+        <li>简历和附件路径只用于提醒，网页上传仍需你手动选择文件。</li>
+      </ul>
+    </aside>
+  </main>
+  <script src="shared/profile.js"></script>
+  <script src="shared/storage.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

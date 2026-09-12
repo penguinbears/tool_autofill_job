@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>招聘表单测试页</title>
+  <style>
+    body { font-family: sans-serif; padding: 30px; }
+    section { margin: 20px 0; }
+    label { display: block; margin: 12px 0; }
+    input, select, textarea, [role="combobox"] { width: 320px; min-height: 32px; }
+    [role="combobox"] { border: 1px solid #999; padding: 5px; }
+    #location-options { display: none; margin-top: 4px; }
+    [role="option"] { padding: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <form id="application">
+    <section aria-label="投递意向">
+      <h2>投递意向</h2>
+      <label>
+        意向工作地点
+        <div id="location" role="combobox" aria-label="意向工作地点" tabindex="0">
+          <span id="location-value">请选择</span>
+          <div id="location-options">
+            <div role="option">北京</div>
+            <div role="option">上海</div>
+          </div>
+        </div>
+      </label>
+      <label for="referral">推荐码</label>
+      <input id="referral" name="referralCode" placeholder="请输入推荐码">
+    </section>
+
+    <section aria-label="个人信息">
+      <h2>个人信息</h2>
+      <label for="name">姓名</label>
+      <input id="name" name="fullName" required>
+      <label for="email">邮箱</label>
+      <input id="email" type="email" value="existing@example.com" required>
+      <label for="phone">手机号码</label>
+      <input id="phone" type="tel" required>
+      <label for="degree">最高学历</label>
+      <select id="degree" required>
+        <option value="">请选择</option>
+        <option value="master">硕士</option>
+        <option value="bachelor">学士</option>
+      </select>
+      <label for="id-number">身份证号码</label>
+      <input id="id-number">
+      <label for="custom-required">自定义必填题</label>
+      <input id="custom-required" required>
+      <label for="resume-file">上传简历</label>
+      <input id="resume-file" type="file" style="display:none">
+    </section>
+
+    <section aria-label="教育经历">
+      <h2>教育经历</h2>
+      <div id="education-list">
+        <div class="education-item">
+          <label>学校名称<input required></label>
+          <label>专业名称<input required></label>
+          <label>开始时间<input placeholder="YYYY-MM"></label>
+          <label>结束时间<input placeholder="YYYY-MM"></label>
+        </div>
+      </div>
+      <button id="add-education" type="button">添加教育经历</button>
+    </section>
+
+    <section aria-label="工作经历">
+      <h2>工作经历</h2>
+      <div id="work-list">
+        <div class="work-item">
+          <label>公司名称<input></label>
+          <label>职位名称<input></label>
+          <label>工作职责<textarea></textarea></label>
+        </div>
+      </div>
+      <button id="add-work" type="button">添加工作经历</button>
+    </section>
+
+    <button type="submit">预览并提交</button>
+  </form>
+  <script>
+    window.submitCount = 0;
+    document.getElementById("application").addEventListener("submit", (event) => {
+      event.preventDefault();
+      window.submitCount += 1;
+    });
+    const locationBox = document.getElementById("location");
+    const options = document.getElementById("location-options");
+    locationBox.addEventListener("click", () => {
+      options.style.display = "block";
+    });
+    options.addEventListener("click", (event) => {
+      if (event.target.getAttribute("role") !== "option") return;
+      document.getElementById("location-value").textContent = event.target.textContent;
+      locationBox.setAttribute("data-value", event.target.textContent);
+      options.style.display = "none";
+      event.stopPropagation();
+    });
+    document.getElementById("add-education").addEventListener("click", () => {
+      const item = document.querySelector(".education-item").cloneNode(true);
+      item.querySelectorAll("input").forEach((input) => { input.value = ""; });
+      document.getElementById("education-list").appendChild(item);
+    });
+    document.getElementById("add-work").addEventListener("click", () => {
+      const item = document.querySelector(".work-item").cloneNode(true);
+      item.querySelectorAll("input,textarea").forEach((input) => { input.value = ""; });
+      document.getElementById("work-list").appendChild(item);
+    });
+
+    if (new URLSearchParams(location.search).has("harness")) {
+      const result = document.createElement("pre");
+      result.id = "harness-results";
+      result.textContent = "RUNNING";
+      document.body.prepend(result);
+      window.__jobAutofillListeners = [];
+      window.chrome = {
+        runtime: {
+          async sendMessage() {},
+          onMessage: {
+            addListener(listener) {
+              window.__jobAutofillListeners.push(listener);
+            }
+          }
+        }
+      };
+      window.JobAutofillStorage = {
+        async addApplicationRecord() {
+          return [];
+        }
+      };
+
+      const loadScript = (source) => new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = source;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      const send = (message) => new Promise((resolve) => {
+        window.__jobAutofillListeners[0](message, null, resolve);
+      });
+
+      (async () => {
+        await loadScript("../shared/profile.js?v=0.12.0");
+        await loadScript("../shared/matcher.js?v=0.12.0");
+        await loadScript("../content.js?v=0.12.2");
+        const profile = {
+          personal: {
+            full_name: "测试用户",
+            phone: "13800138000",
+            email: "new@example.com",
+            highest_degree: "硕士"
+          },
+          application: {
+            first_choice_location: "北京",
+            desired_locations: ["北京", "上海", "杭州"],
+            location_policy: {
+              single_select: "first_available",
+              multi_select: "all_preferred_available",
+              free_text_separator: "/"
+            }
+          },
+          education: [
+            { school: "示例大学", major: "软件工程", start_date: "2024-09", end_date: "2027-06" },
+            { school: "第二大学", major: "计算机科学", start_date: "2020-09", end_date: "2024-06" }
+          ],
+          work_experience: [
+            { company: "示例公司", position: "产品经理", responsibilities: "负责产品规划" },
+            { company: "第二公司", position: "产品实习生", responsibilities: "负责需求分析" }
+          ],
+          files: { resume: "C:\\fake\\resume.pdf" },
+          additional: { custom_answers: { "自定义必填题": "自定义答案" } },
+          autofill: { repeat_sections: { education: 2, work_experience: 2 } }
+        };
+        const scan = await send({ type: "JOB_AUTOFILL_SCAN", profile });
+        const fill = await send({ type: "JOB_AUTOFILL_FILL", profile, overwrite: false });
+        const htmlSnapshot = await send({ type: "JOB_AUTOFILL_EXPORT_HTML" });
+        const checks = {
+          scan_ok: scan.ok === true,
+          second_education_added: document.querySelectorAll(".education-item").length === 2,
+          second_work_added: document.querySelectorAll(".work-item").length === 2,
+          name_filled: document.getElementById("name").value === "测试用户",
+          existing_email_preserved: document.getElementById("email").value === "existing@example.com",
+          native_select_filled: document.getElementById("degree").value === "master",
+          custom_select_filled: document.getElementById("location").dataset.value === "北京",
+          custom_answer_filled: document.getElementById("custom-required").value === "自定义答案",
+          sensitive_not_filled: document.getElementById("id-number").value === "",
+          file_remains_manual: fill.results.some((item) => item.descriptor.type === "file" && item.status === "manual-required"),
+          form_not_submitted: window.submitCount === 0,
+          expansion_complete: fill.expansion.every((item) => item.status === "complete"),
+          html_snapshot_exported:
+            htmlSnapshot.ok === true &&
+            htmlSnapshot.html.startsWith("<!doctype html>") &&
+            htmlSnapshot.html.includes("自定义必填题"),
+          html_snapshot_sanitized:
+            !htmlSnapshot.html.includes("<script") &&
+            !htmlSnapshot.html.includes("测试用户") &&
+            !htmlSnapshot.html.includes("13800138000") &&
+            !htmlSnapshot.html.includes("new@example.com") &&
+            !htmlSnapshot.html.includes("自定义答案") &&
+            htmlSnapshot.html.includes("data-job-autofill-value-state")
+        };
+        const passed = Object.values(checks).every(Boolean);
+        document.body.dataset.testStatus = passed ? "passed" : "failed";
+        const diagnostics = fill.results
+          .filter((item) => ["custom-required", "id-number", "resume-file"].includes(item.descriptor.id))
+          .map((item) => ({
+            id: item.descriptor.id,
+            label: item.descriptor.label,
+            match: item.match,
+            customKey: item.customKey,
+            hasValue: item.hasValue,
+            previewValue: item.previewValue,
+            status: item.status
+          }));
+        result.textContent = JSON.stringify({ passed, checks, expansion: fill.expansion, diagnostics }, null, 2);
+      })().catch((error) => {
+        document.body.dataset.testStatus = "failed";
+        result.textContent = JSON.stringify({ passed: false, error: String(error && error.stack || error) }, null, 2);
+      });
+    }
+  </script>
+</body>
+</html>

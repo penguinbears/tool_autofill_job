@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.job-autofill.invalid/candidate-profile.schema.json",
+  "title": "秋招智能填表助手中文候选人档案",
+  "description": "档案数据使用中文 key；JSON Schema 自身的标准关键字保持英文。",
+  "type": "object",
+  "required": [
+    "元数据",
+    "个人信息",
+    "求职意向",
+    "教育经历",
+    "工作经历",
+    "补充信息",
+    "自动填写设置"
+  ],
+  "properties": {
+    "元数据": {
+      "type": "object",
+      "required": ["档案版本", "语言地区"],
+      "properties": {
+        "档案版本": { "const": "2.0" },
+        "更新时间": { "type": "string" },
+        "语言地区": { "type": "string" }
+      }
+    },
+    "个人信息": {
+      "type": "object",
+      "properties": {
+        "姓名": { "type": "string" },
+        "姓": { "type": "string" },
+        "名": { "type": "string" },
+        "英文名": { "type": "string" },
+        "性别": { "type": "string" },
+        "出生日期": { "$ref": "#/$defs/dateValue" },
+        "电话国家区号": { "type": "string" },
+        "手机号": { "type": "string" },
+        "邮箱": { "type": "string" },
+        "备用邮箱": { "type": "string" },
+        "国籍": { "type": "string" },
+        "民族": { "type": "string" },
+        "政治面貌": { "type": "string" },
+        "婚姻状况": { "type": "string" },
+        "最高学历": { "type": "string" },
+        "当前国家": { "type": "string" },
+        "当前省份": { "type": "string" },
+        "当前城市": { "type": "string" },
+        "家乡省份": { "type": "string" },
+        "家乡城市": { "type": "string" },
+        "户口所在地": { "type": "string" },
+        "当前地址": { "type": "string" }
+      }
+    },
+    "求职意向": {
+      "type": "object",
+      "properties": {
+        "意向职位": { "type": "string" },
+        "意向工作地点": { "type": "array", "items": { "type": "string" } },
+        "第一意向地点": { "type": "string" },
+        "地点填写策略": {
+          "type": "object",
+          "properties": {
+            "单选策略": { "type": "string" },
+            "多选策略": { "type": "string" },
+            "自由文本分隔符": { "type": "string" }
+          }
+        },
+        "可到岗日期": { "$ref": "#/$defs/dateValue" },
+        "招聘类型": { "type": "string" },
+        "期望薪资": { "type": "string" },
+        "内推码": { "type": "string" },
+        "投递渠道": { "type": "string" }
+      }
+    },
+    "教育经历": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/educationItem" }
+    },
+    "工作经历": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/workItem" }
+    },
+    "实习经历": { "type": "array", "items": { "type": "object" } },
+    "项目经历": { "type": "array", "items": { "type": "object" } },
+    "获奖经历": { "type": "array", "items": { "type": "object" } },
+    "语言能力": { "type": "array", "items": { "type": "object" } },
+    "技能": {
+      "type": "object",
+      "properties": {
+        "技术技能": { "type": "array", "items": { "type": "string" } },
+        "证书列表": { "type": "array", "items": { "type": "string" } },
+        "自我评价": { "type": "string" }
+      }
+    },
+    "个人链接": {
+      "type": "object",
+      "properties": {
+        "作品集": { "type": "string" },
+        "代码仓库": { "type": "string" },
+        "领英主页": { "type": "string" },
+        "个人网站": { "type": "string" }
+      }
+    },
+    "文件": {
+      "type": "object",
+      "properties": {
+        "简历": { "type": "string" },
+        "成绩单": { "type": "string" },
+        "作品集": { "type": "string" },
+        "其他文件": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "补充信息": {
+      "type": "object",
+      "properties": {
+        "其他意向地点": { "type": "string" },
+        "补充说明": { "type": "string" },
+        "自定义回答": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "自动填写设置": {
+      "type": "object",
+      "properties": {
+        "重复区块数量": {
+          "type": "object",
+          "properties": {
+            "教育经历": { "type": "integer", "minimum": 0 },
+            "工作经历": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "敏感信息": {
+      "type": "object",
+      "properties": {
+        "证件类型": { "type": "string" },
+        "证件号码": { "type": "string" },
+        "护照号码": { "type": "string" },
+        "银行账号": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "dateValue": {
+      "type": "string",
+      "pattern": "^(|\\d{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)$"
+    },
+    "educationItem": {
+      "type": "object",
+      "properties": {
+        "学校": { "type": "string" },
+        "学历": { "type": "string", "description": "例如本科、硕士、博士" },
+        "学位": { "type": "string" },
+        "学院": { "type": "string" },
+        "专业": { "type": "string" },
+        "专业大类": { "type": "string", "description": "例如工科、理科、文科" },
+        "开始时间": { "$ref": "#/$defs/dateValue" },
+        "结束时间": { "$ref": "#/$defs/dateValue" },
+        "绩点": { "type": "string" },
+        "排名": { "type": "string" },
+        "描述": { "type": "string" }
+      }
+    },
+    "workItem": {
+      "type": "object",
+      "properties": {
+        "公司": { "type": "string" },
+        "部门": { "type": "string" },
+        "职位": { "type": "string" },
+        "开始时间": { "$ref": "#/$defs/dateValue" },
+        "结束时间": { "$ref": "#/$defs/dateValue" },
+        "是否在职": { "type": "boolean" },
+        "工作内容": { "type": "string" }
+      }
+    }
+  }
+}

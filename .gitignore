@@ -1,0 +1,48 @@
+# Candidate data and local profiles
+candidate-profile.json
+candidate-profile.local.json
+candidate-profile.*.local.json
+profile.json
+*.candidate-profile.json
+current-page-fields.json
+private/
+personal-data/
+user-data/
+resumes/
+resume/
+简历/
+*.resume.pdf
+*.resume.doc
+*.resume.docx
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*credentials*.json
+*secrets*.json
+*api-key*
+*.key
+*.pem
+
+# Diagnostics and captured pages may contain form or account data
+job-autofill-diagnostic-*
+diagnostics/
+captures/
+
+# Generated application history and release packages
+outputs/
+*.xlsx
+*.xls
+*.csv
+job-application-autofill-v*.zip
+*.crx
+
+# Dependencies, coverage, logs and editor files
+node_modules/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

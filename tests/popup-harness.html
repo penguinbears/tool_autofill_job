@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>弹窗补填测试</title>
+  <link rel="stylesheet" href="../popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div><h1>秋招智能填表助手</h1><p>测试</p></div>
+      <button id="open-options" type="button">档案</button>
+    </header>
+    <section class="actions">
+      <button id="scan" type="button">扫描当前页</button>
+      <button id="fill" type="button">填充已匹配项</button>
+      <button id="export-diagnostic" type="button" disabled>未匹配网页诊断</button>
+    </section>
+    <label class="overwrite"><input id="overwrite" type="checkbox">覆盖</label>
+    <div id="status"></div>
+    <section id="summary" hidden>
+      <div class="metrics">
+        <span><strong id="matched">0</strong></span>
+        <span><strong id="ready">0</strong></span>
+        <span><strong id="missing">0</strong></span>
+      </div>
+      <ul id="field-list"></ul>
+    </section>
+    <section id="missing-editor" class="panel" hidden>
+      <div class="panel-heading">
+        <div><h2>需要补填</h2><p>修改后自动保存</p></div>
+        <button id="bind-json" type="button">绑定 JSON</button>
+      </div>
+      <div id="sync-state"></div>
+      <div id="missing-list"></div>
+    </section>
+    <section id="attention" class="panel" hidden>
+      <h2>需要你处理</h2>
+      <ul id="attention-list"></ul>
+    </section>
+    <section id="history" class="panel">
+      <div class="panel-heading">
+        <div><h2>投递历史</h2><p>测试</p></div>
+        <div>
+          <button id="add-history" type="button">添加 URL</button>
+          <button id="export-history" type="button">导出 Excel</button>
+          <button id="clear-history" type="button">清空</button>
+        </div>
+      </div>
+      <form id="history-add-form" hidden>
+        <input id="history-add-url" type="url" required>
+        <input id="history-add-company" type="text">
+        <input id="history-add-position" type="text">
+        <input id="history-add-category" type="text">
+        <button id="save-history" type="submit">保存记录</button>
+        <button id="cancel-add-history" type="button">取消</button>
+      </form>
+      <div id="history-toolbar" hidden>
+        <div id="history-category-filters"></div>
+        <span id="history-count"></span>
+        <select id="history-sort">
+          <option value="date-desc">最近投递</option>
+          <option value="date-asc">最早投递</option>
+          <option value="category">职位分类</option>
+          <option value="company">公司名称</option>
+          <option value="position">职位名称</option>
+        </select>
+      </div>
+      <p id="history-empty">暂无记录</p>
+      <ul id="history-list"></ul>
+    </section>
+    <datalist id="position-category-options">
+      <option value="产品"></option>
+      <option value="技术研发"></option>
+      <option value="运营"></option>
+    </datalist>
+    <pre id="test-result">RUNNING</pre>
+  </main>
+  <script>
+    globalThis.__memoryStorage = {
+      candidateProfile: {
+        application: { referral_code: "" },
+        education: [{ school: "北京交通大学", end_date: "" }],
+        additional: { custom_answers: {} }
+      },
+      applicationHistory: [
+        {
+          id: "record-product",
+          title: "示例公司 - 产品经理",
+          company: "示例公司",
+          position: "产品经理",
+          category: "产品",
+          url: "https://jobs.example.com/product",
+          date: "2026-07-24T10:00:00.000Z",
+          status: "filled"
+        },
+        {
+          id: "record-engineer",
+          title: "示例公司 - 前端工程师",
+          company: "示例公司",
+          position: "前端工程师",
+          category: "技术研发",
+          url: "https://jobs.example.com/engineer",
+          date: "2026-07-23T10:00:00.000Z",
+          status: "filled"
+        }
+      ]
+    };
+    globalThis.__scanFields = [
+      {
+        descriptor: { label: "推荐码", tag: "input", type: "text", required: false },
+        match: { path: "application.referral_code", score: 100, sensitive: false, reason: "alias" },
+        arrayIndex: 0, repeatPosition: 0, customKey: "", hasValue: false, previewValue: ""
+      },
+      {
+        descriptor: { label: "结束时间", tag: "div", type: "", required: true },
+        match: { path: "education[].end_date", score: 100, sensitive: false, reason: "alias" },
+        arrayIndex: 0, repeatPosition: 1, customKey: "", hasValue: false, previewValue: ""
+      },
+      {
+        descriptor: { label: "是否接受调剂", tag: "input", type: "text", required: true },
+        match: { path: "additional.custom_answers", score: 65, sensitive: false, reason: "custom-answer" },
+        arrayIndex: 0, repeatPosition: 0, customKey: "是否接受调剂", hasValue: false, previewValue: ""
+      },
+      {
+        descriptor: {
+          label: "最高学历",
+          tag: "div",
+          type: "",
+          required: true,
+          currentValue: "本科"
+        },
+        match: { path: "personal.highest_degree", score: 100, sensitive: false, reason: "alias" },
+        arrayIndex: 0,
+        repeatPosition: 0,
+        customKey: "",
+        hasValue: true,
+        previewValue: "硕士"
+      }
+    ];
+    globalThis.chrome = {
+      storage: {
+        local: {
+          async get(keys) {
+            const requested = Array.isArray(keys) ? keys : [keys];
+            return Object.fromEntries(requested
+              .filter((key) => Object.prototype.hasOwnProperty.call(globalThis.__memoryStorage, key))
+              .map((key) => [key, globalThis.__memoryStorage[key]]));
+          },
+          async set(value) {
+            Object.assign(globalThis.__memoryStorage, value);
+          }
+        }
+      },
+      tabs: {
+        async query() {
+          return [{
+            id: 1,
+            title: "测试投递页",
+            url: "https://jobs.example.com/apply?token=secret-value#resume"
+          }];
+        },
+        async sendMessage(tabId, message) {
+          if (message && message.type === "JOB_AUTOFILL_EXPORT_HTML") {
+            return {
+              ok: true,
+              title: "测试投递页",
+              url: "https://jobs.example.com/apply",
+              html: "<!doctype html><html><body><label>最高学历</label><input data-job-autofill-value-state=\"filled\"></body></html>"
+            };
+          }
+          return { ok: true, title: "北森测试页", fields: globalThis.__scanFields };
+        },
+        async create() {}
+      },
+      scripting: { async executeScript() {} },
+      runtime: {
+        async openOptionsPage() {},
+        getManifest() { return { version: "0.12.2" }; },
+        onMessage: { addListener() {} }
+      }
+    };
+  </script>
+  <script src="../shared/profile.js?v=0.12.2" charset="utf-8"></script>
+  <script src="../shared/matcher.js?v=0.12.2" charset="utf-8"></script>
+  <script src="../shared/storage.js?v=0.12.2" charset="utf-8"></script>
+  <script src="../shared/xlsx-export.js?v=0.12.2" charset="utf-8"></script>
+  <script src="../popup.js?v=0.12.2" charset="utf-8"></script>
+  <script>
+    (async () => {
+      globalThis.__htmlSnapshotBlob = null;
+      globalThis.__xlsxBlob = null;
+      globalThis.__downloadName = "";
+      URL.createObjectURL = (blob) => {
+        if (blob.type.includes("spreadsheetml")) {
+          globalThis.__xlsxBlob = blob;
+          return "blob:xlsx-test";
+        }
+        globalThis.__htmlSnapshotBlob = blob;
+        return "blob:html-snapshot-test";
+      };
+      URL.revokeObjectURL = () => {};
+      HTMLAnchorElement.prototype.click = function () {
+        globalThis.__downloadName = this.download;
+      };
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const initialRows = document.querySelectorAll(".history-row").length;
+      const initialCategories = document.getElementById("history-category-filters").textContent;
+      const diagnosticInitiallyDisabled = document.getElementById("export-diagnostic").disabled;
+
+      document.getElementById("add-history").click();
+      document.getElementById("history-add-url").value = "https://jobs.example.com/operation";
+      document.getElementById("history-add-company").value = "新增公司";
+      document.getElementById("history-add-position").value = "用户运营";
+      document.getElementById("history-add-category").value = "运营";
+      document.getElementById("history-add-form").dispatchEvent(new Event("submit", {
+        bubbles: true,
+        cancelable: true
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      const manualRecord = globalThis.__memoryStorage.applicationHistory.find((item) => (
+        item.url === "https://jobs.example.com/operation"
+      ));
+
+      const manualRow = Array.from(document.querySelectorAll(".history-row")).find((row) => (
+        row.textContent.includes("新增公司")
+      ));
+      manualRow.querySelector(".history-btn-edit").click();
+      const editForm = document.querySelector(".history-edit-form");
+      const editInputs = editForm.querySelectorAll("input");
+      editInputs[0].value = "修改后的公司";
+      editInputs[1].value = "内容运营";
+      editInputs[2].value = "运营";
+      editForm.querySelector(".history-btn-save").click();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      const editedRecord = globalThis.__memoryStorage.applicationHistory.find((item) => (
+        item.url === "https://jobs.example.com/operation"
+      ));
+
+      const operationFilter = Array.from(document.querySelectorAll(".history-filter-button")).find((button) => (
+        button.textContent.startsWith("运营 ")
+      ));
+      operationFilter.click();
+      const filteredRows = document.querySelectorAll(".history-row").length;
+      document.getElementById("history-sort").value = "category";
+      document.getElementById("history-sort").dispatchEvent(new Event("change", { bubbles: true }));
+      document.getElementById("export-history").click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const xlsxBytes = new Uint8Array(await globalThis.__xlsxBlob.arrayBuffer());
+      const xlsxDownloadName = globalThis.__downloadName;
+
+      document.getElementById("scan").click();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const rows = Array.from(document.querySelectorAll(".missing-row"));
+      const values = {
+        "推荐码": "无",
+        "结束时间（网页第 2 段）": "2027-06",
+        "是否接受调剂": "是"
+      };
+      rows.forEach((row) => {
+        const label = row.querySelector("label").textContent;
+        const input = row.querySelector("input,textarea");
+        input.value = values[label] || "";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      document.getElementById("export-diagnostic").click();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const htmlSnapshot = await globalThis.__htmlSnapshotBlob.text();
+      const htmlDownloadName = globalThis.__downloadName;
+      const profile = globalThis.__memoryStorage.candidateProfile;
+      const checks = {
+        initial_history_visible: initialRows === 2,
+        diagnostic_requires_scan_or_fill: diagnosticInitiallyDisabled,
+        same_company_multiple_positions: initialRows === 2,
+        initial_categories_visible:
+          initialCategories.includes("产品") && initialCategories.includes("技术研发"),
+        manual_url_saved: Boolean(manualRecord),
+        company_and_position_edited:
+          editedRecord.company === "修改后的公司" &&
+          editedRecord.position === "内容运营",
+        category_filter_works: filteredRows === 1,
+        xlsx_exported:
+          xlsxBytes[0] === 0x50 &&
+          xlsxBytes[1] === 0x4B &&
+          xlsxDownloadName.endsWith(".xlsx"),
+        missing_editor_visible: !document.getElementById("missing-editor").hidden,
+        three_missing_rows: rows.length === 3,
+        diagnostic_enabled: !document.getElementById("export-diagnostic").disabled,
+        referral_saved: profile.application.referral_code === "无",
+        education_end_saved: profile.education[0].end_date === "2027-06",
+        custom_answer_saved: profile.additional.custom_answers["是否接受调剂"] === "是",
+        html_snapshot_exported:
+          htmlSnapshot.startsWith("<!doctype html>") &&
+          htmlSnapshot.includes("data-job-autofill-value-state") &&
+          htmlDownloadName.endsWith(".html") &&
+          !htmlSnapshot.includes("secret-value"),
+        conflict_is_explicit: document.getElementById("attention-list").textContent.includes(
+          "网页为“本科”，档案为“硕士”"
+        )
+      };
+      const passed = Object.values(checks).every(Boolean);
+      document.body.dataset.testStatus = passed ? "passed" : "failed";
+      document.getElementById("test-result").textContent = JSON.stringify({ passed, checks }, null, 2);
+    })().catch((error) => {
+      document.body.dataset.testStatus = "failed";
+      document.getElementById("test-result").textContent = JSON.stringify({
+        passed: false,
+        error: String(error && error.stack || error)
+      }, null, 2);
+    });
+  </script>
+</body>
+</html>

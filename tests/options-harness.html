@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>档案编辑器测试</title>
+</head>
+<body>
+  <button id="bind-json" type="button">绑定</button>
+  <input id="import-file" type="file">
+  <button id="export" type="button">导出</button>
+  <section id="profile-summary"></section>
+  <span id="status"></span>
+  <p id="file-status"></p>
+  <button id="reset" type="button">重置</button>
+  <button id="save" type="button">保存</button>
+  <textarea id="editor"></textarea>
+  <pre id="test-result">RUNNING</pre>
+  <script>
+    globalThis.__storedProfile = {
+      personal: {
+        full_name: "测试用户",
+        phone: "13800138000",
+        email: "test@example.com"
+      },
+      application: { desired_locations: ["北京"] },
+      education: [{ school: "示例大学", start_date: "2020-09", end_date: "2024-06" }],
+      work_experience: [{ company: "示例公司" }]
+    };
+    globalThis.confirm = () => true;
+    globalThis.chrome = {
+      storage: {
+        local: {
+          async get() {
+            return { candidateProfile: globalThis.__storedProfile };
+          },
+          async set(value) {
+            globalThis.__storedProfile = value.candidateProfile;
+          }
+        }
+      }
+    };
+  </script>
+  <script src="../shared/profile.js?v=0.4.0"></script>
+  <script>
+    globalThis.JobAutofillStorage = {
+      async bindingStatus() {
+        return { bound: false, permission: "missing", fileName: "" };
+      },
+      async saveProfile(profile) {
+        globalThis.__storedProfile = profile;
+        return {
+          profile,
+          fileSync: { synced: false, reason: "not-bound" }
+        };
+      },
+      async bindProfileFile() {
+        return { ok: false, reason: "file-picker-unavailable" };
+      }
+    };
+  </script>
+  <script src="../options.js?v=0.4.0"></script>
+  <script>
+    (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const editor = document.getElementById("editor");
+      const loaded = JSON.parse(editor.value);
+      const summaryBefore = document.querySelectorAll(".summary-item").length;
+
+      loaded.education = "错误类型";
+      editor.value = JSON.stringify(loaded);
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("save").click();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const invalidRejected = document.getElementById("status").textContent.includes(
+        "education 必须是 JSON 数组"
+      );
+
+      loaded.education = [{ school: "更新后的大学" }];
+      editor.value = JSON.stringify(loaded);
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("save").click();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const checks = {
+        profile_loaded: loaded.personal.full_name === "测试用户",
+        summary_rendered: summaryBefore === 4,
+        invalid_structure_rejected: invalidRejected,
+        valid_change_saved:
+          globalThis.__storedProfile.education[0].school === "更新后的大学",
+        save_status_visible:
+          document.getElementById("status").textContent === "档案已校验并保存"
+      };
+      const passed = Object.values(checks).every(Boolean);
+      document.body.dataset.testStatus = passed ? "passed" : "failed";
+      document.getElementById("test-result").textContent = JSON.stringify({
+        passed,
+        checks
+      }, null, 2);
+    })().catch((error) => {
+      document.body.dataset.testStatus = "failed";
+      document.getElementById("test-result").textContent = JSON.stringify({
+        passed: false,
+        error: String(error && error.stack || error)
+      }, null, 2);
+    });
+  </script>
+</body>
+</html>

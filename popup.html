@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>秋招智能填表助手</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>秋招智能填表助手</h1>
+        <p>本地档案 · 预览后填充 · 不自动提交</p>
+      </div>
+      <button id="open-options" class="ghost" type="button">档案</button>
+    </header>
+
+    <section class="actions">
+      <button id="scan" type="button">扫描当前页</button>
+      <button id="fill" class="primary" type="button">填充已匹配项</button>
+      <button
+        id="export-diagnostic"
+        class="diagnostic"
+        type="button"
+        title="导出当前网页的实时 HTML；脚本和表单输入值会被移除"
+        disabled
+      >
+        未匹配网页诊断
+      </button>
+    </section>
+    <label class="overwrite">
+      <input id="overwrite" type="checkbox">
+      覆盖网页中已经存在的内容
+    </label>
+
+    <div id="status" role="status">请先导入候选人档案。</div>
+    <section id="summary" hidden>
+      <div class="metrics">
+        <span><strong id="matched">0</strong> 可匹配</span>
+        <span><strong id="ready">0</strong> 可填写</span>
+        <span><strong id="missing">0</strong> 缺资料</span>
+      </div>
+      <ul id="field-list"></ul>
+    </section>
+
+    <section id="missing-editor" class="panel" hidden>
+      <div class="panel-heading">
+        <div>
+          <h2>需要补填</h2>
+          <p>修改后自动保存；再次点击填充即可写入网页。</p>
+        </div>
+        <button id="bind-json" class="ghost" type="button">绑定 JSON</button>
+      </div>
+      <div id="sync-state" class="sync-state"></div>
+      <div id="missing-list"></div>
+    </section>
+
+    <section id="attention" class="panel attention" hidden>
+      <h2>需要你处理</h2>
+      <ul id="attention-list"></ul>
+    </section>
+
+    <section id="history" class="panel history-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>投递历史</h2>
+          <p>自动记录或手动添加；可按职位分类并导出 Excel。</p>
+        </div>
+        <div class="history-header-actions">
+          <button id="add-history" class="ghost" type="button">添加 URL</button>
+          <button id="export-history" class="ghost" type="button">导出 Excel</button>
+          <button id="clear-history" class="ghost danger-text" type="button">清空</button>
+        </div>
+      </div>
+
+      <form id="history-add-form" class="history-record-form" hidden>
+        <h3>手动添加投递记录</h3>
+        <label>投递页面 URL（必填）</label>
+        <input id="history-add-url" type="url" placeholder="https://jobs.example.com/apply/..." required>
+        <div class="history-form-grid">
+          <div>
+            <label>公司</label>
+            <input id="history-add-company" type="text" placeholder="公司名称">
+          </div>
+          <div>
+            <label>职位</label>
+            <input id="history-add-position" type="text" placeholder="职位名称">
+          </div>
+        </div>
+        <label>职位分类（留空则自动判断）</label>
+        <input id="history-add-category" type="text" list="position-category-options" placeholder="例如：产品、技术研发">
+        <div class="history-edit-btns">
+          <button id="save-history" class="history-btn-save" type="submit">保存记录</button>
+          <button id="cancel-add-history" class="history-btn-cancel" type="button">取消</button>
+        </div>
+      </form>
+
+      <div id="history-toolbar" class="history-toolbar" hidden>
+        <div id="history-category-filters" class="history-category-filters"></div>
+        <div class="history-sort-row">
+          <span id="history-count"></span>
+          <label>
+            排序
+            <select id="history-sort">
+              <option value="date-desc">最近投递</option>
+              <option value="date-asc">最早投递</option>
+              <option value="category">职位分类</option>
+              <option value="company">公司名称</option>
+              <option value="position">职位名称</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <p id="history-empty" class="history-empty">暂无投递记录，可以点击“添加 URL”手动创建。</p>
+      <ul id="history-list"></ul>
+    </section>
+
+    <datalist id="position-category-options">
+      <option value="产品"></option>
+      <option value="技术研发"></option>
+      <option value="设计"></option>
+      <option value="运营"></option>
+      <option value="市场销售"></option>
+      <option value="职能支持"></option>
+      <option value="未分类"></option>
+    </datalist>
+
+    <footer>文件上传、验证码和最终提交始终由你完成；跨站异常可导出未匹配网页诊断。</footer>
+  </main>
+  <script src="shared/profile.js"></script>
+  <script src="shared/matcher.js"></script>
+  <script src="shared/storage.js"></script>
+  <script src="shared/xlsx-export.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
