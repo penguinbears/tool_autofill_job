@@ -21,6 +21,12 @@
     <label class="overwrite"><input id="overwrite" type="checkbox">覆盖</label>
     <section class="match-action"><button id="match-jobs" type="button">AI分析当前页岗位匹配度</button></section>
     <div id="status"></div>
+    <section id="session-panel" class="panel session-panel">
+      <span id="session-badge"></span>
+      <p id="session-detail"></p>
+      <button id="session-check" type="button">重新检测</button>
+      <button id="session-toggle" type="button" disabled>开启当前网站</button>
+    </section>
     <section id="summary" hidden>
       <div class="metrics">
         <span><strong id="matched">0</strong></span>
@@ -168,6 +174,12 @@
           }];
         },
         async sendMessage(tabId, message) {
+          if (message.type === "SESSION_DETECT_LOGIN") {
+            return {
+              ok: true,
+              result: { state: "logged-in", confidence: 0.96, reason: "顶部账户区域已渲染且未显示登录" }
+            };
+          }
           return { ok: true, title: "北森测试页", fields: globalThis.__scanFields };
         },
         async create() {}
@@ -176,6 +188,21 @@
       permissions: { async request() { return true; } },
       runtime: {
         async openOptionsPage() {},
+        async sendMessage(message) {
+          if (message.type === "SESSION_KEEPALIVE_STATUS") return { ok: true, site: null };
+          if (message.type === "SESSION_KEEPALIVE_ENABLE") {
+            return {
+              ok: true,
+              site: {
+                enabled: true,
+                state: "active",
+                lastSuccessAt: "2026-09-13T00:00:00.000Z"
+              }
+            };
+          }
+          if (message.type === "SESSION_KEEPALIVE_DISABLE") return { ok: true, site: null };
+          return { ok: true };
+        },
         getURL(path) { return `chrome-extension://test/${path}`; },
         getManifest() {
           return {
@@ -207,7 +234,17 @@
       HTMLAnchorElement.prototype.click = function () {
         globalThis.__downloadName = this.download;
       };
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      for (let attempt = 0; attempt < 20 && document.querySelectorAll(".history-row").length < 2; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      const sessionDetected =
+        document.getElementById("session-badge").textContent === "已登录" &&
+        !document.getElementById("session-toggle").disabled;
+      document.getElementById("session-toggle").click();
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      const sessionEnabled =
+        document.getElementById("session-badge").textContent === "保活中" &&
+        document.getElementById("session-toggle").textContent === "停用当前网站";
       const initialRows = document.querySelectorAll(".history-row").length;
       const initialCategories = document.getElementById("history-category-filters").textContent;
 
@@ -269,6 +306,8 @@
       await new Promise((resolve) => setTimeout(resolve, 500));
       const profile = globalThis.__memoryStorage.candidateProfile;
       const checks = {
+        session_login_detected: sessionDetected,
+        session_keepalive_enabled: sessionEnabled,
         initial_history_visible: initialRows === 2,
         same_company_multiple_positions: initialRows === 2,
         initial_categories_visible:

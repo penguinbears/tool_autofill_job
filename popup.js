@@ -21,9 +21,14 @@
   const historyCountNode = document.getElementById("history-count");
   const historyEmptyNode = document.getElementById("history-empty");
   const matchJobsButton = document.getElementById("match-jobs");
+  const sessionBadge = document.getElementById("session-badge");
+  const sessionDetail = document.getElementById("session-detail");
+  const sessionCheckButton = document.getElementById("session-check");
+  const sessionToggleButton = document.getElementById("session-toggle");
   let currentProfile = null;
   let allHistory = [];
   let historyFilter = "全部";
+  let currentSessionContext = null;
 
   function setStatus(text, isError) {
     statusNode.textContent = text;
@@ -54,6 +59,141 @@
       target: { tabId },
       files: ["job-list.js"]
     });
+  }
+
+  async function ensureSessionDetectorInjected(tabId) {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["session-detector.js"]
+    });
+  }
+
+  function sessionPermissionOrigin(rawUrl) {
+    const url = new URL(rawUrl);
+    if (!/^https?:$/i.test(url.protocol)) throw new Error("当前页面不是招聘网站");
+    return `${url.origin}/*`;
+  }
+
+  function setSessionUi(state, detail, options) {
+    const settings = options || {};
+    const labels = {
+      active: "保活中",
+      "logged-in": "已登录",
+      "logged-out": "未登录",
+      checking: "检测中",
+      error: "请求异常",
+      unknown: "无法确认"
+    };
+    sessionBadge.className = `session-badge ${state || "unknown"}`;
+    sessionBadge.textContent = labels[state] || labels.unknown;
+    sessionDetail.textContent = detail || "无法判断当前网站的登录状态。";
+    sessionToggleButton.disabled = Boolean(settings.disabled);
+    sessionToggleButton.textContent = settings.enabled ? "停用当前网站" : "开启当前网站";
+  }
+
+  function describeSessionSite(site) {
+    if (!site) return "";
+    if (site.state === "active") {
+      const time = site.lastSuccessAt ? new Date(site.lastSuccessAt).toLocaleString("zh-CN", { hour12: false }) : "刚刚";
+      return `当前网站已开启无感保活；最近一次后台请求成功：${time}。`;
+    }
+    if (site.state === "logged-out") return `保活已开启，但网站要求重新登录：${site.reason || "登录已失效"}。`;
+    if (site.state === "error") return `保活已开启，最近请求异常：${site.reason || "网络错误"}。`;
+    return `当前网站已开启保活：${site.reason || "等待下一次后台请求"}。`;
+  }
+
+  async function detectCurrentSession() {
+    const tab = await activeTab();
+    if (!tab || !tab.id || !/^https?:\/\//i.test(tab.url || "")) {
+      currentSessionContext = null;
+      setSessionUi("unknown", "请在招聘网站页面使用登录保活。", { disabled: true });
+      return;
+    }
+    const status = await chrome.runtime.sendMessage({ type: "SESSION_KEEPALIVE_STATUS", url: tab.url });
+    if (!status || !status.ok) throw new Error(status && status.error || "无法读取保活状态");
+    await ensureSessionDetectorInjected(tab.id);
+    const response = await chrome.tabs.sendMessage(tab.id, { type: "SESSION_DETECT_LOGIN", timeoutMs: 3000 });
+    if (!response || !response.ok) throw new Error(response && response.error || "网页登录检测没有响应");
+    currentSessionContext = {
+      tab,
+      detection: response.result || { state: "unknown" },
+      site: status.site || null
+    };
+    if (status.site) {
+      const detection = currentSessionContext.detection;
+      if (detection.state === "logged-out") {
+        setSessionUi("logged-out", `${detection.reason}。保活配置仍保留，登录后可重新检测。`, {
+          enabled: true,
+          disabled: false
+        });
+        return;
+      }
+      if (detection.state === "logged-in" && status.site.state === "logged-out") {
+        const refreshed = await chrome.runtime.sendMessage({
+          type: "SESSION_KEEPALIVE_ENABLE",
+          url: tab.url,
+          title: tab.title || new URL(tab.url).hostname
+        });
+        if (refreshed && refreshed.ok) currentSessionContext.site = refreshed.site;
+      }
+      const currentSite = currentSessionContext.site;
+      setSessionUi(currentSite.state || "active", describeSessionSite(currentSite), {
+        enabled: true,
+        disabled: false
+      });
+      return;
+    }
+    const detection = currentSessionContext.detection;
+    if (detection.state === "logged-in") {
+      setSessionUi("logged-in", `${detection.reason}。可以为 ${new URL(tab.url).hostname} 开启保活。`, {
+        disabled: false
+      });
+    } else if (detection.state === "logged-out") {
+      setSessionUi("logged-out", `${detection.reason}。请先登录网站，再开启保活。`, { disabled: true });
+    } else {
+      setSessionUi("unknown", `${detection.reason || "无法确认登录状态"}。`, { disabled: true });
+    }
+  }
+
+  async function toggleCurrentSession() {
+    if (!currentSessionContext || !currentSessionContext.tab) return;
+    sessionToggleButton.disabled = true;
+    try {
+      const tab = currentSessionContext.tab;
+      if (currentSessionContext.site) {
+        const response = await chrome.runtime.sendMessage({
+          type: "SESSION_KEEPALIVE_DISABLE",
+          url: tab.url
+        });
+        if (!response || !response.ok) throw new Error(response && response.error || "停用失败");
+        currentSessionContext.site = null;
+        setSessionUi(currentSessionContext.detection.state, "已停止当前网站的后台保活。", {
+          disabled: currentSessionContext.detection.state !== "logged-in"
+        });
+        return;
+      }
+      if (currentSessionContext.detection.state !== "logged-in") {
+        throw new Error("尚未确认当前网站已经登录");
+      }
+      const origin = sessionPermissionOrigin(tab.url);
+      const granted = await chrome.permissions.request({ origins: [origin] });
+      if (!granted) throw new Error("未获得当前招聘网站的后台访问权限");
+      setSessionUi("checking", "正在执行首次后台保活请求。", { disabled: true });
+      const response = await chrome.runtime.sendMessage({
+        type: "SESSION_KEEPALIVE_ENABLE",
+        url: tab.url,
+        title: tab.title || new URL(tab.url).hostname
+      });
+      if (!response || !response.ok) throw new Error(response && response.error || "开启失败");
+      currentSessionContext.site = response.site;
+      setSessionUi(response.site.state || "active", describeSessionSite(response.site), {
+        enabled: true,
+        disabled: false
+      });
+    } catch (error) {
+      const enabled = Boolean(currentSessionContext && currentSessionContext.site);
+      setSessionUi("error", `登录保活操作失败：${error.message || error}`, { enabled, disabled: false });
+    }
   }
 
   function permissionOrigin(rawUrl) {
@@ -695,6 +835,13 @@
   document.getElementById("scan").addEventListener("click", () => send("JOB_AUTOFILL_SCAN"));
   document.getElementById("fill").addEventListener("click", () => send("JOB_AUTOFILL_FILL"));
   matchJobsButton.addEventListener("click", startJobMatching);
+  sessionCheckButton.addEventListener("click", () => {
+    setSessionUi("checking", "正在重新识别顶部账户区域。", { disabled: true });
+    detectCurrentSession().catch((error) => {
+      setSessionUi("error", `登录状态检测失败：${error.message || error}`, { disabled: true });
+    });
+  });
+  sessionToggleButton.addEventListener("click", toggleCurrentSession);
   addHistoryButton.addEventListener("click", showHistoryAddForm);
   exportHistoryButton.addEventListener("click", exportHistoryWorkbook);
   historyAddForm.addEventListener("submit", saveManualHistory);
@@ -752,7 +899,12 @@
     currentProfile = profile;
     const hasIdentity = Boolean(profile.personal.full_name || profile.personal.email || profile.personal.phone);
     setStatus(hasIdentity ? "档案已加载，请扫描当前页。" : "请先打开“档案”导入标准 JSON。");
-    await refreshBindingStatus();
-    await loadAndRenderHistory();
+    await Promise.allSettled([
+      refreshBindingStatus(),
+      loadAndRenderHistory()
+    ]);
+  });
+  detectCurrentSession().catch((error) => {
+    setSessionUi("error", `登录状态检测失败：${error.message || error}`, { disabled: true });
   });
 })();
