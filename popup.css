@@ -61,11 +61,6 @@ button.ghost { padding: 6px 10px; }
   margin-top: 18px;
 }
 
-.actions .diagnostic {
-  grid-column: 1 / -1;
-  padding: 7px 12px;
-}
-
 button:disabled {
   border-color: #e0e5eb;
   background: #f3f5f7;

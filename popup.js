@@ -9,7 +9,6 @@
   const syncStateNode = document.getElementById("sync-state");
   const attentionNode = document.getElementById("attention");
   const attentionListNode = document.getElementById("attention-list");
-  const diagnosticButton = document.getElementById("export-diagnostic");
   const historyNode = document.getElementById("history");
   const historyListNode = document.getElementById("history-list");
   const clearHistoryButton = document.getElementById("clear-history");
@@ -22,8 +21,6 @@
   const historyCountNode = document.getElementById("history-count");
   const historyEmptyNode = document.getElementById("history-empty");
   let currentProfile = null;
-  let lastFields = [];
-  let lastPage = { title: "", url: "" };
   let allHistory = [];
   let historyFilter = "全部";
 
@@ -222,7 +219,7 @@
       } else if (field.status === "verification-failed") {
         messages.push(`${labelFor(field)}：${field.dateFailure || "网页回读值与档案不一致，请检查该控件是否接受了填写"}。`);
       } else if (field.status === "option-not-found") {
-        messages.push(`${labelFor(field)}：${field.dateFailure || "下拉框没有找到匹配选项，请导出未匹配网页诊断并附上选项截图"}。`);
+        messages.push(`${labelFor(field)}：${field.dateFailure || "下拉框没有找到匹配选项，请提供展开后的选项截图"}。`);
       } else if (field.status === "disabled") {
         messages.push(`${labelFor(field)}：网页控件被禁用，可能需先完成前置字段。`);
       } else if (field.status === "value-not-matched") {
@@ -248,7 +245,6 @@
   }
 
   function render(fields, results, expansion) {
-    lastFields = fields;
     const matched = fields.filter((field) => field.match.path);
     const ready = matched.filter((field) => field.hasValue);
     const missing = missingCandidates(fields);
@@ -292,48 +288,6 @@
     summaryNode.hidden = false;
     renderMissingEditor(fields);
     renderAttention(fields, results, expansion);
-  }
-
-  function unmatchedPageFileName(pageUrl) {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    let host = "page";
-    try {
-      host = new URL(pageUrl || lastPage.url).hostname.replace(/[^\w.-]+/g, "-") || host;
-    } catch (error) {
-      // Keep the generic name when the current URL is unavailable.
-    }
-    return `job-autofill-unmatched-page-${host}-${date}.html`;
-  }
-
-  async function exportUnmatchedPageHtml() {
-    if (!lastFields.length) {
-      setStatus("请先点击“扫描当前页”或“填充已匹配项”，再导出网页诊断。", true);
-      return;
-    }
-    try {
-      const tab = await activeTab();
-      if (!tab || !tab.id) throw new Error("没有可用的当前网页");
-      await ensureInjected(tab.id);
-      const response = await chrome.tabs.sendMessage(tab.id, {
-        type: "JOB_AUTOFILL_EXPORT_HTML"
-      });
-      if (!response || !response.ok || !response.html) {
-        throw new Error("网页未返回 HTML 快照");
-      }
-      const blob = new Blob(
-        [response.html],
-        { type: "text/html;charset=utf-8" }
-      );
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = unmatchedPageFileName(response.url || tab.url);
-      anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-      setStatus(`已导出当前网页 HTML：${anchor.download}。请把该文件发给我分析。`);
-    } catch (error) {
-      setStatus(`网页 HTML 导出失败：${error.message || error}`, true);
-    }
   }
 
   function formatHistoryDate(isoString) {
@@ -651,12 +605,6 @@
         overwrite
       });
       if (!response || !response.ok) throw new Error("网页未响应");
-      lastPage = {
-        title: response.title || tab.title || "",
-        url: response.url || tab.url || ""
-      };
-      diagnosticButton.disabled = false;
-
       if (type === "JOB_AUTOFILL_SCAN") {
         render(response.fields || [], [], []);
         setStatus(`已扫描：${response.title || "当前页面"}。缺失资料可直接在下方填写。`);
@@ -677,7 +625,6 @@
 
   document.getElementById("scan").addEventListener("click", () => send("JOB_AUTOFILL_SCAN"));
   document.getElementById("fill").addEventListener("click", () => send("JOB_AUTOFILL_FILL"));
-  diagnosticButton.addEventListener("click", exportUnmatchedPageHtml);
   addHistoryButton.addEventListener("click", showHistoryAddForm);
   exportHistoryButton.addEventListener("click", exportHistoryWorkbook);
   historyAddForm.addEventListener("submit", saveManualHistory);

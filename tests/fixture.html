@@ -176,7 +176,6 @@
         };
         const scan = await send({ type: "JOB_AUTOFILL_SCAN", profile });
         const fill = await send({ type: "JOB_AUTOFILL_FILL", profile, overwrite: false });
-        const htmlSnapshot = await send({ type: "JOB_AUTOFILL_EXPORT_HTML" });
         const checks = {
           scan_ok: scan.ok === true,
           second_education_added: document.querySelectorAll(".education-item").length === 2,
@@ -189,18 +188,7 @@
           sensitive_not_filled: document.getElementById("id-number").value === "",
           file_remains_manual: fill.results.some((item) => item.descriptor.type === "file" && item.status === "manual-required"),
           form_not_submitted: window.submitCount === 0,
-          expansion_complete: fill.expansion.every((item) => item.status === "complete"),
-          html_snapshot_exported:
-            htmlSnapshot.ok === true &&
-            htmlSnapshot.html.startsWith("<!doctype html>") &&
-            htmlSnapshot.html.includes("自定义必填题"),
-          html_snapshot_sanitized:
-            !htmlSnapshot.html.includes("<script") &&
-            !htmlSnapshot.html.includes("测试用户") &&
-            !htmlSnapshot.html.includes("13800138000") &&
-            !htmlSnapshot.html.includes("new@example.com") &&
-            !htmlSnapshot.html.includes("自定义答案") &&
-            htmlSnapshot.html.includes("data-job-autofill-value-state")
+          expansion_complete: fill.expansion.every((item) => item.status === "complete")
         };
         const passed = Object.values(checks).every(Boolean);
         document.body.dataset.testStatus = passed ? "passed" : "failed";

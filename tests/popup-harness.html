@@ -14,7 +14,6 @@
     <section class="actions">
       <button id="scan" type="button">扫描当前页</button>
       <button id="fill" type="button">填充已匹配项</button>
-      <button id="export-diagnostic" type="button" disabled>未匹配网页诊断</button>
     </section>
     <label class="overwrite"><input id="overwrite" type="checkbox">覆盖</label>
     <div id="status"></div>
@@ -161,14 +160,6 @@
           }];
         },
         async sendMessage(tabId, message) {
-          if (message && message.type === "JOB_AUTOFILL_EXPORT_HTML") {
-            return {
-              ok: true,
-              title: "测试投递页",
-              url: "https://jobs.example.com/apply",
-              html: "<!doctype html><html><body><label>最高学历</label><input data-job-autofill-value-state=\"filled\"></body></html>"
-            };
-          }
           return { ok: true, title: "北森测试页", fields: globalThis.__scanFields };
         },
         async create() {}
@@ -188,7 +179,6 @@
   <script src="../popup.js?v=0.12.2" charset="utf-8"></script>
   <script>
     (async () => {
-      globalThis.__htmlSnapshotBlob = null;
       globalThis.__xlsxBlob = null;
       globalThis.__downloadName = "";
       URL.createObjectURL = (blob) => {
@@ -196,8 +186,7 @@
           globalThis.__xlsxBlob = blob;
           return "blob:xlsx-test";
         }
-        globalThis.__htmlSnapshotBlob = blob;
-        return "blob:html-snapshot-test";
+        return "blob:test";
       };
       URL.revokeObjectURL = () => {};
       HTMLAnchorElement.prototype.click = function () {
@@ -206,7 +195,6 @@
       await new Promise((resolve) => setTimeout(resolve, 100));
       const initialRows = document.querySelectorAll(".history-row").length;
       const initialCategories = document.getElementById("history-category-filters").textContent;
-      const diagnosticInitiallyDisabled = document.getElementById("export-diagnostic").disabled;
 
       document.getElementById("add-history").click();
       document.getElementById("history-add-url").value = "https://jobs.example.com/operation";
@@ -264,14 +252,9 @@
         input.dispatchEvent(new Event("change", { bubbles: true }));
       });
       await new Promise((resolve) => setTimeout(resolve, 500));
-      document.getElementById("export-diagnostic").click();
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      const htmlSnapshot = await globalThis.__htmlSnapshotBlob.text();
-      const htmlDownloadName = globalThis.__downloadName;
       const profile = globalThis.__memoryStorage.candidateProfile;
       const checks = {
         initial_history_visible: initialRows === 2,
-        diagnostic_requires_scan_or_fill: diagnosticInitiallyDisabled,
         same_company_multiple_positions: initialRows === 2,
         initial_categories_visible:
           initialCategories.includes("产品") && initialCategories.includes("技术研发"),
@@ -286,15 +269,9 @@
           xlsxDownloadName.endsWith(".xlsx"),
         missing_editor_visible: !document.getElementById("missing-editor").hidden,
         three_missing_rows: rows.length === 3,
-        diagnostic_enabled: !document.getElementById("export-diagnostic").disabled,
         referral_saved: profile.application.referral_code === "无",
         education_end_saved: profile.education[0].end_date === "2027-06",
         custom_answer_saved: profile.additional.custom_answers["是否接受调剂"] === "是",
-        html_snapshot_exported:
-          htmlSnapshot.startsWith("<!doctype html>") &&
-          htmlSnapshot.includes("data-job-autofill-value-state") &&
-          htmlDownloadName.endsWith(".html") &&
-          !htmlSnapshot.includes("secret-value"),
         conflict_is_explicit: document.getElementById("attention-list").textContent.includes(
           "网页为“本科”，档案为“硕士”"
         )
