@@ -52,6 +52,7 @@
 ### 模型与 Prompt
 
 - [x] ~~在“档案”左侧增加同尺寸“AI”入口，并跳转到独立设置页面。~~
+- [x] ~~在 AI 输入区明确提示当前仅支持 OpenAI-compatible Chat Completions，不支持 Anthropic 原生 Messages API。~~
 - [x] ~~支持用户配置 Base URL、模型名称和个人 API Key。~~
 - [x] ~~提供内置匹配分析 Prompt，并允许用户查看、修改和恢复默认值。~~
 - [x] ~~支持读取本地 Markdown/TXT/JSON 文档或公开 GitHub SKILL.md 作为额外分析规则。~~
@@ -59,6 +60,7 @@
 - [x] ~~要求模型返回经过校验的结构化结果，包括分数、优势、缺口、硬性条件和证据。~~
 - [x] ~~由扩展根据固定阈值和硬性条件生成四档匹配等级。~~
 - [x] ~~将 JD 视为不可信数据，不允许网页内容覆盖模型安全指令。~~
+- [ ] 增加 Anthropic 原生 Messages API Provider 适配器。
 
 ### 隐私、权限与缓存
 

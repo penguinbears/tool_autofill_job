@@ -41,6 +41,19 @@ p { color: #657283; }
   box-shadow: 0 14px 40px rgba(32, 48, 64, .06);
 }
 
+.compatibility-note {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid #e6c879;
+  border-radius: 10px;
+  background: #fff8e5;
+  color: #765615;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.compatibility-note code { color: #65470b; }
+
 label {
   display: block;
   margin: 16px 0 7px;

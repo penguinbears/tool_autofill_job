@@ -18,9 +18,12 @@
     </header>
 
     <section class="card">
+      <div class="compatibility-note" role="note">
+        当前仅支持 <strong>OpenAI-compatible Chat Completions API</strong>。Anthropic 原生 Messages API（<code>/v1/messages</code>）暂不支持；只有提供 OpenAI 兼容地址的服务才能使用。
+      </div>
       <label for="base-url">Base URL</label>
-      <input id="base-url" type="url" placeholder="https://api.example.com/v1" autocomplete="url">
-      <p class="help">默认请求 <code>Base URL/chat/completions</code>；也可以填写完整的 Chat Completions 地址。</p>
+      <input id="base-url" type="url" placeholder="仅支持 OpenAI-compatible，例如 https://api.example.com/v1" autocomplete="url">
+      <p class="help">默认请求 <code>Base URL/chat/completions</code>；也可以填写完整的 Chat Completions 地址。请勿填写 Anthropic 原生 <code>/v1/messages</code> 地址。</p>
 
       <label for="api-key">API Key</label>
       <input id="api-key" type="password" placeholder="输入后以密文显示" autocomplete="off" spellcheck="false">
