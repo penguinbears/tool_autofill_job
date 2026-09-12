@@ -34,7 +34,6 @@
 | `UI-ACTIONS` | 扫描与填充操作区 | 弹窗顶部“扫描当前页 / 填充已匹配项” | 发起扫描、填写和覆盖已有值 | `popup.html`、`popup.js` |
 | `UI-MATCH` | 岗位匹配入口 | 弹窗状态栏上方“AI分析当前页岗位匹配度” | 识别当前列表并启动岗位匹配 | `popup.html`、`popup.js` |
 | `UI-AI` | AI 设置页面 | 点击弹窗右上角“AI” | 配置 Base URL、API Key、模型、Prompt 和 Skill | `ai.html`、`ai.css`、`ai.js` |
-| `UI-SESSION` | 登录保活界面 | 弹窗中的“登录保活” | 显示当前网站登录状态，开启、检测或停用逐站后台保活 | `popup.html`、`popup.css`、`popup.js` |
 | `UI-SUMMARY` | 字段扫描结果区 | 弹窗中的“可匹配 / 可填写 / 缺资料”及字段列表 | 显示识别结果和档案字段路径 | `popup.js` 的 `render()` |
 | `UI-MISSING` | 缺失资料补填区 | 弹窗中的“需要补填” | 直接编辑缺失资料并自动保存至档案和已绑定 JSON | `popup.js` 的 `createEditor()`、`persistField()` |
 | `UI-ATTENTION` | 人工处理提示区 | 弹窗中的“需要你处理” | 显示资料冲突、下拉失败、文件上传等提示 | `popup.js` 的 `renderAttention()` |
@@ -62,7 +61,6 @@
 | `CORE-JOB-LIST` | 岗位列表识别 | 识别岗位链接，向列表注入匹配徽标和详情浮层 | `job-list.js` |
 | `CORE-JD-EXTRACT` | 岗位 JD 提取 | 在非活动标签页中加载详情并提取主要文本 | `background.js`、`job-detail.js` |
 | `CORE-AI-MATCH` | AI 岗位匹配 | 对档案脱敏，调用 Chat Completions，校验结果并计算四档等级 | `background.js`、`shared/ai-match.js` |
-| `CORE-SESSION` | 登录状态与后台保活 | 识别顶部账户区域；对用户授权的网站每 10 分钟发送只读请求并记录状态 | `session-detector.js`、`background.js` |
 
 ## 三、标准档案与持久化模块
 
@@ -180,7 +178,6 @@ job-application-autofill/
 ├── README.md                     # 安装与使用说明
 ├── manifest.json                 # Edge / Chrome 扩展清单
 ├── background.js                # 岗位详情读取、模型调用和缓存
-├── session-detector.js           # 顶部导航栏与登录状态识别
 ├── popup.html / .css / .js       # 插件弹窗及投递历史界面
 ├── options.html / .css / .js     # 候选人档案页面
 ├── ai.html / .css / .js          # AI、Prompt 与 Skill 设置页面
