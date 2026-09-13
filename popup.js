@@ -289,6 +289,14 @@
         messages.push(`${labelFor(field)}：${field.dateFailure || "网页回读值与档案不一致，请检查该控件是否接受了填写"}。`);
       } else if (field.status === "option-not-found") {
         messages.push(`${labelFor(field)}：${field.dateFailure || "下拉框没有找到匹配选项，请提供展开后的选项截图"}。`);
+      } else if (field.status === "popup-timeout") {
+        messages.push(`${labelFor(field)}：等待当前字段的下拉面板超时，请展开控件后重试。`);
+      } else if (field.status === "date-navigation-failed") {
+        messages.push(`${labelFor(field)}：日期面板未切换到档案中的年份，请检查年份按钮或可选日期范围。`);
+      } else if (field.status === "invalid-date") {
+        messages.push(`${labelFor(field)}：档案日期无效，请使用 YYYY-MM-DD 或 YYYY-MM 格式并检查年月日。`);
+      } else if (field.status === "stale-locator") {
+        messages.push(`${labelFor(field)}：页面重绘后未找到对应控件，请重新扫描。`);
       } else if (field.status === "disabled") {
         messages.push(`${labelFor(field)}：网页控件被禁用，可能需先完成前置字段。`);
       } else if (field.status === "value-not-matched") {
@@ -684,7 +692,8 @@
         const preserved = results.filter((item) => item.status === "existing-value").length;
         render(results, results, response.expansion || []);
         const added = (response.expansion || []).reduce((sum, item) => sum + Math.max(0, item.after - item.before), 0);
-        const failed = results.filter((item) => item.status === "verification-failed").length;
+        const failed = results.filter((item) => ["verification-failed", "popup-timeout", "date-navigation-failed",
+          "invalid-date", "stale-locator", "option-not-found"].includes(item.status)).length;
         setStatus(`已新增 ${added} 个经历区块，验证成功 ${filled} 项；保留原值 ${preserved} 项；验证失败 ${failed} 项；缺资料 ${missing} 项。`, failed > 0);
       }
     } catch (error) {
