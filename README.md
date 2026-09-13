@@ -73,23 +73,6 @@
 - 不填写密码、文件选择器、证件号、银行卡等敏感字段。
 - 不自动点击最终提交按钮。
 
-## 测试
-
-不依赖浏览器的核心逻辑测试可以直接运行：
-
-```powershell
-node --test tests/background-job-match.test.js tests/job-fetch.test.js tests/job-list-moka.test.js tests/ai-match.test.js tests/ai-settings.test.js tests/history-storage.test.js tests/matcher.test.js tests/popup-ui.test.js tests/semantic-provider.test.js tests/xlsx-export.test.js
-```
-
-DOM、日期组件和履历上下文测试需要先在本地安装 Playwright，然后运行完整测试集：
-
-```powershell
-npm install --save-dev playwright
-npx playwright install chromium
-node --test tests/*.test.js
-```
-
-页面组件的测试夹具和补充说明位于 [`tests`](tests) 目录。
 
 ## 项目结构
 
