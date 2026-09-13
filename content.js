@@ -9,9 +9,12 @@
   // ===== 平台检测 =====
   let _platform = null;
   function detectPlatform() {
-    if (_platform) return _platform;
+    if (_platform && _platform !== "generic") return _platform;
     // Moka: 特征隐藏域 #moka-version
-    if (document.querySelector("#moka-version")) { _platform = "moka"; return "moka"; }
+    if (document.querySelector("#moka-version") || /(^|\.)mokahr\.com$/.test(location.hostname) ||
+      document.querySelector("[class*='apply-field-'] [class*='sd-Dropdown-container-']")) {
+      _platform = "moka"; return "moka";
+    }
     // Beisen: phoenix-select 组件或 sc-iAKWXU 区块
     if (document.querySelector(".phoenix-select, .sc-iAKWXU")) { _platform = "beisen"; return "beisen"; }
     _platform = "generic";
@@ -24,6 +27,9 @@
     block: "[class*='apply-block-']",
     field: "[class*='apply-field-']",
     selectContainer: "[class*='sd-Select-container']",
+    dropdown: "[class*='sd-Dropdown-container-']",
+    popup: "[class*='sd-Dropdown-dropdown-']",
+    option: "[class*='sd-Select-menu-item-'],[role='option']",
     titleLabel: "[class*='title-']",
     blockTitle: "[class*='blockTitle-']",
     blockTitleText: "[class*='blockTitle-'] [class*='text-']",
@@ -33,7 +39,6 @@
     displayValue: "[class*='sd-Input-display-value']",
     addon: "[class*='sd-Input-addon'],[class*='sd-Select-addon']",
     multiGroup: "[class*='apply-fields-'][class*='multi-']",
-    monthRangeItems: "[class*='item-'],[class*='item-half-']",
     dropdownPortal: "[class*='sd-Dropdown-portal'],.sugar-portal > *"
   };
 
@@ -124,15 +129,15 @@
         .filter(Boolean)
     ));
     let label = cleanText(unique.join(" "), 160);
+    if (isMoka() && formItem) label = mokaFieldTitle(formItem) || label;
 
     // Moka month-range-select: 根据位置生成 开始时间/结束时间 以区分 start_date / end_date
     if (isMoka()) {
       const monthRange = element.closest(".month-range-select");
       if (monthRange) {
-        const allItems = Array.from(monthRange.querySelectorAll(MOKA_SEL.monthRangeItems));
-        const itemEl = element.closest(MOKA_SEL.monthRangeItems);
-        const idx = itemEl ? allItems.indexOf(itemEl) : -1;
-        if (idx >= 0) {
+        const allItems = Array.from(monthRange.querySelectorAll(MOKA_SEL.selectContainer));
+        const idx = allItems.indexOf(element);
+        if (idx >= 0 && allItems.length === 4) {
           const isStart = idx < allItems.length / 2;
           label = isStart ? "开始时间" : "结束时间";
         }
@@ -194,7 +199,8 @@
   }
 
   function descriptorFor(element, domIndex) {
-    const isCustomSelect = element.matches(CUSTOM_SELECT_SELECTORS);
+    const isCustomSelect = element.matches(CUSTOM_SELECT_SELECTORS) ||
+      (isMoka() && element.matches(MOKA_SEL.dropdown));
     const role = element.getAttribute("role") || (isCustomSelect ? "combobox" : "");
     const formItem = formItemFor(element);
     // Read placeholder from inner input for Moka selects
@@ -230,6 +236,7 @@
   }
 
   function readControlValue(element) {
+    if (isMoka() && mokaControlFor(element) === element) return readMokaValue(element);
     if (element.matches && element.matches(ATSX_MONTH_LABEL)) {
       const year = cleanText(element.querySelector("[data-cy='year']")?.textContent);
       const month = cleanText(element.querySelector("[data-cy='month']")?.textContent);
@@ -424,13 +431,18 @@
 
   function scan(profile) {
     const elements = Array.from(document.querySelectorAll(
-      `input,textarea,select,${CUSTOM_SELECT_SELECTORS},[contenteditable='true']`
+      `input,textarea,select,${CUSTOM_SELECT_SELECTORS},[contenteditable='true']${isMoka() ? ',' + MOKA_SEL.dropdown : ''}`
     ))
       .filter((element) => {
         if (element.matches(".atsx-date-picker-period-hidden-input,.atsx-date-picker-period-line")) return false;
         if (element.closest(ATSX_MONTH_PANEL)) return false;
         if (element.matches(ATSX_MONTH_LABEL)) return true;
         if (element.closest(ATSX_MONTH_LABEL) || element.querySelector(ATSX_MONTH_LABEL)) return false;
+        if (isMoka()) {
+          if (element.closest(`${MOKA_SEL.popup},.sugar-portal`)) return false;
+          const control = mokaControlFor(element);
+          if (control) return control === element;
+        }
         const customSelect = customSelectFor(element);
         return !customSelect || customSelect === element;
       })
@@ -455,6 +467,7 @@
       }
       return {
         element,
+        mokaLocator: isMoka() ? makeMokaLocator(element) : null,
         dateLocator: element.matches(ATSX_MONTH_LABEL) ? {
           scope: formItemFor(element) || element.parentElement,
           index: Array.from((formItemFor(element) || element.parentElement).querySelectorAll(ATSX_MONTH_LABEL)).indexOf(element)
@@ -471,23 +484,12 @@
       record.repeatPosition = record.arrayIndex;
     });
     assignRepeatIndexes(records, profile);
+    // 年、月属于同一条经历，不能分别消耗 JSON 数组下标。
+    records.filter((record) => record.mokaLocator && !record.repeatGroup && record.match.path.includes('[]'))
+      .forEach((record) => { record.arrayIndex = record.repeatPosition = record.mokaLocator.fieldIndex; });
     lastScan = records;
     return records;
   }
-
-  // Moka 专用定位：不依赖随机 class 后缀；每次填写前重新解析，兼容 React 重渲染。
-  const MOKA_BLOCK_BY_SECTION = {
-    "申请信息": "block-applyInfo",
-    "个人信息": "block-basicInfo",
-    "求职意向": "block-jobIntention",
-    "教育背景": "block-educationInfo",
-    "教育经历": "block-educationInfo",
-    "工作经历": "block-experienceInfo",
-    "实习经历": "block-practiceInfo",
-    "项目经历": "block-projectInfo",
-    "项目经验": "block-projectInfo",
-    "获奖经历": "block-awardInfo"
-  };
 
   function mokaFieldTitle(field) {
     const titleSpan = field.querySelector(`:scope > ${MOKA_SEL.titleLabel} span`) ||
@@ -496,33 +498,252 @@
       .replace(/[*：:]/g, "").trim();
   }
 
-  function mokaFieldsByTitle(block, label) {
-    const normalizedLabel = globalThis.JobAutofillMatcher.normalize(label)
-      .replace(/[*：:]/g, "").trim();
-    const titleSpans = Array.from(block.querySelectorAll(
-      `${MOKA_SEL.field} > ${MOKA_SEL.titleLabel} span, ${MOKA_SEL.field} ${MOKA_SEL.titleLabel} span`
-    ));
-    return Array.from(new Set(titleSpans.filter((span) => {
-      const title = globalThis.JobAutofillMatcher.normalize(span.textContent || "")
-        .replace(/[*：:]/g, "").trim();
-      return title === normalizedLabel || title.includes(normalizedLabel) || normalizedLabel.includes(title);
-    }).map((span) => span.closest(MOKA_SEL.field)).filter(Boolean)));
+  function resolveMokaElement(record) {
+    if (!record) return null;
+    return record.mokaLocator ? locateMokaControl(record.mokaLocator) : record.element;
   }
 
-  function resolveMokaElement(record) {
-    if (!isMoka() || !record || !record.descriptor) return record && record.element;
-    const sectionId = MOKA_BLOCK_BY_SECTION[record.descriptor.sectionText] || "";
-    const blocks = sectionId
-      ? Array.from(document.querySelectorAll(`[data-nav-id='${sectionId}']`))
-      : Array.from(document.querySelectorAll(MOKA_SEL.block));
-    const label = cleanText(record.descriptor.label, 160).replace(/[*：:]/g, "").trim();
-    const fields = blocks.flatMap((block) => mokaFieldsByTitle(block, label));
-    if (!fields.length) return null;
-    const field = fields[Math.min(record.repeatPosition || 0, fields.length - 1)];
-    if (record.descriptor.role === "combobox" || field.querySelector(MOKA_SEL.selectContainer)) {
-      return field.querySelector(MOKA_SEL.selectContainer) || field;
+  // Moka / Sugar Design adapter. See docs/MOKA-FORM-LOGIC.md.
+  // The input of sd-Select is a search query, not its committed value.
+  function mokaControlFor(element) {
+    if (!element?.closest(MOKA_SEL.field) || element.closest(MOKA_SEL.popup)) return null;
+    const dropdown = element.closest(MOKA_SEL.dropdown);
+    if (dropdown) {
+      const select = dropdown.querySelector(MOKA_SEL.selectContainer);
+      if (select) return select;
+      if (dropdown.querySelector("input[readonly],[class*='sd-picker-addon-']")) return dropdown;
     }
-    return field.querySelector("input,textarea,[contenteditable='true']") || field;
+    return element.closest(MOKA_SEL.selectContainer);
+  }
+
+  function mokaControls(field) {
+    return Array.from(new Set(Array.from(field.querySelectorAll(
+      `input,textarea,select,[contenteditable='true'],${MOKA_SEL.selectContainer},${MOKA_SEL.dropdown}`
+    )).filter((el) => !el.closest(MOKA_SEL.popup) && !SKIP_TYPES.has(el.type))
+      .map((el) => mokaControlFor(el) || el).filter((el) =>
+        !el.matches(MOKA_SEL.dropdown) || mokaControlFor(el) === el)));
+  }
+
+  function mokaControlKind(element) {
+    if (element.matches(MOKA_SEL.selectContainer)) return 'select';
+    if (element.matches(MOKA_SEL.dropdown)) {
+      return element.querySelector("[class*='sd-picker-addon-']") ? 'date' : 'unsupported-dropdown';
+    }
+    return element.tagName;
+  }
+
+  function makeMokaLocator(element) {
+    const field = element.closest(MOKA_SEL.field);
+    if (!field) return null;
+    const block = field.closest(MOKA_SEL.block);
+    const blocks = Array.from(document.querySelectorAll(MOKA_SEL.block));
+    const nav = block?.getAttribute('data-nav-id') || '';
+    const title = mokaFieldTitle(field);
+    const fields = Array.from((block || document).querySelectorAll(MOKA_SEL.field))
+      .filter((el) => mokaFieldTitle(el) === title);
+    const controls = mokaControls(field);
+    const controlIndex = controls.indexOf(element);
+    if (!title || controlIndex < 0) return null;
+    const range = element.closest('.month-range-select');
+    const parts = range ? Array.from(range.querySelectorAll(MOKA_SEL.selectContainer)) : [];
+    const partIndex = parts.indexOf(element);
+    return {
+      title, nav, blockIndex: nav ? blocks.filter((el) => el.getAttribute('data-nav-id') === nav).indexOf(block) : blocks.indexOf(block),
+      fieldIndex: fields.indexOf(field), controlIndex,
+      kind: mokaControlKind(element),
+      part: partIndex >= 0 && [2, 4].includes(parts.length) ? (partIndex % 2 ? 'month' : 'year') : ''
+    };
+  }
+
+  function locateMokaControl(locator) {
+    let blocks = Array.from(document.querySelectorAll(MOKA_SEL.block));
+    if (locator.nav) blocks = blocks.filter((el) => el.getAttribute('data-nav-id') === locator.nav);
+    const block = locator.blockIndex < 0 ? document : blocks[locator.blockIndex];
+    if (!block) return null;
+    const field = Array.from(block.querySelectorAll(MOKA_SEL.field))
+      .filter((el) => mokaFieldTitle(el) === locator.title)[locator.fieldIndex];
+    const control = field && mokaControls(field)[locator.controlIndex];
+    if (!control) return null;
+    return mokaControlKind(control) === locator.kind ? control : null;
+  }
+
+  function mokaDisabled(element) {
+    return !element?.isConnected || Boolean(element.closest(
+      "[disabled],[aria-disabled='true'],[class*='sd-basic-disabled-'],[class*='sd-Select-disabled-'],[class*='sd-Select-containerDisabled-'],[class*='sd-Input-disabled-']"
+    )) || Boolean(element.querySelector('input:disabled'));
+  }
+
+  function readMokaValue(element) {
+    if (!element) return '';
+    if (element.matches(MOKA_SEL.selectContainer)) {
+      const display = element.querySelector(MOKA_SEL.displayValue);
+      const tags = Array.from(element.querySelectorAll("[class*='sd-Select-tag-']"));
+      const value = cleanText(display?.textContent || tags.map((el) => el.textContent).join('、') ||
+        element.getAttribute('aria-valuetext') || element.getAttribute('data-value'), 300);
+      return /^(请选择|select|choose)/i.test(value) ? '' : value;
+    }
+    return cleanText(element.querySelector('input')?.value || element.value, 160);
+  }
+
+  function parseMokaDate(value) {
+    const match = String(value).trim().match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/);
+    if (!match) return null;
+    const year = Number(match[1]), month = Number(match[2]), day = match[3] ? Number(match[3]) : null;
+    if (year < 1000 || month < 1 || month > 12 || (day !== null &&
+      (day < 1 || day > new Date(year, month, 0).getDate()))) return null;
+    return { year, month, day };
+  }
+
+  const MOKA_MONTHS = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+  function mokaMonthNumber(text) {
+    const index = MOKA_MONTHS.indexOf(cleanText(text));
+    if (index >= 0) return index + 1;
+    const match = cleanText(text).match(/^(0?[1-9]|1[0-2])月?$/);
+    return match ? Number(match[1]) : null;
+  }
+
+  function mokaValueMatches(record, expected) {
+    const control = resolveMokaElement(record);
+    const actual = readMokaValue(control);
+    const target = parseMokaDate(expected);
+    if (record.mokaLocator.part) {
+      return Boolean(target && (record.mokaLocator.part === 'year'
+        ? /^\d{4}年?$/.test(actual) && Number(actual.replace('年', '')) === target.year
+        : mokaMonthNumber(actual) === target.month));
+    }
+    if (record.mokaLocator.kind === 'date') {
+      const dateText = actual.replace(/年|月|\//g, '-').replace(/日/g, '').trim();
+      const parts = dateText.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/);
+      return Boolean(target && parts && Number(parts[1]) === target.year && Number(parts[2]) === target.month &&
+        (target.day === null || Number(parts[3]) === target.day));
+    }
+    const norm = globalThis.JobAutofillMatcher.normalize;
+    const targets = Array.isArray(expected) ? expected.map(norm) : [norm(String(expected))];
+    const values = actual.split(/[、,，]/).map(norm);
+    return Boolean(actual) && targets.every((item) => values.includes(item));
+  }
+
+  function mokaPopupSession(record) {
+    const all = () => Array.from(document.querySelectorAll(MOKA_SEL.popup)).filter(visible);
+    const before = new Set(all());
+    let owned = null;
+    const control = () => resolveMokaElement(record);
+    function panel() {
+      const entry = control();
+      if (!entry) return null;
+      const wrapper = entry.closest(MOKA_SEL.dropdown);
+      const local = wrapper && Array.from(wrapper.querySelectorAll(MOKA_SEL.popup)).filter(visible);
+      if (local?.length === 1) return owned = local[0];
+      const ids = [entry, ...entry.querySelectorAll('[aria-controls],[aria-owns]')]
+        .flatMap((el) => `${el.getAttribute('aria-controls') || ''} ${el.getAttribute('aria-owns') || ''}`.trim().split(/\s+/)).filter(Boolean);
+      const linked = Array.from(new Set(ids.map((id) => document.getElementById(id)).filter((el) => el && visible(el))));
+      if (linked.length === 1) return owned = linked[0];
+      if (owned?.isConnected && visible(owned)) return owned;
+      const rect = entry.getBoundingClientRect();
+      const fresh = all().filter((el) => !before.has(el)).filter((el) => {
+        const box = el.getBoundingClientRect();
+        return Math.min(Math.abs(box.top - rect.bottom), Math.abs(box.bottom - rect.top)) < 65 &&
+          box.right > rect.left && box.left < rect.right;
+      });
+      return fresh.length === 1 ? owned = fresh[0] : null;
+    }
+    async function close() {
+      const entry = control();
+      if (!panel()) return;
+      entry?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      // Sugar Dropdown also listens for outside clicks; never select an arbitrary option to close it.
+      if (panel()) document.body.click();
+      await waitForDateState(() => !panel(), 500);
+    }
+    return { control, panel, close };
+  }
+
+  async function setMokaControl(record, value) {
+    if (record.mokaLocator.kind === 'unsupported-dropdown') return 'manual-required';
+    const session = mokaPopupSession(record);
+    const date = record.mokaLocator.kind === 'date' || record.mokaLocator.part ? parseMokaDate(value) : null;
+    if ((record.mokaLocator.kind === 'date' || record.mokaLocator.part) && !date) return 'invalid-date';
+    try {
+      if (!session.panel()) {
+        const entry = session.control();
+        (entry.querySelector('input') || entry).click();
+      }
+      if (!await waitForDateState(session.panel)) return 'popup-timeout';
+      if (record.mokaLocator.kind === 'date') return await setMokaCalendar(record, value, date, session);
+      const norm = globalThis.JobAutofillMatcher.normalize;
+      const targets = Array.isArray(value) ? value : [value];
+      for (const target of targets) {
+        const targetText = record.mokaLocator.part ? String(date[record.mokaLocator.part]) : String(target);
+        const candidate = () => {
+          const panel = session.panel();
+          if (!panel) return null;
+          const matches = Array.from(panel.querySelectorAll(MOKA_SEL.option)).filter((el) => visible(el) && !mokaDisabled(el))
+            .filter((el) => record.mokaLocator.part === 'month' ? mokaMonthNumber(el.textContent) === date.month :
+              norm(el.textContent) === norm(targetText));
+          // Nested label nodes must not make one option appear ambiguous.
+          const leaves = matches.filter((el) => !matches.some((other) => other !== el && el.contains(other)));
+          return leaves.length === 1 ? leaves[0] : null;
+        };
+        let option = await waitForDateState(candidate, 800);
+        if (!option) {
+          const input = session.control()?.querySelector('input:not([readonly]):not(:disabled)');
+          if (input) {
+            input.focus();
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(input, targetText);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          option = await waitForDateState(candidate);
+        }
+        if (!option) return 'option-not-found';
+        option.click();
+        if (!await waitForDateState(() => mokaValueMatches(record, record.mokaLocator.part ? value : target))) return 'verification-failed';
+        if (targets.length > 1 && target !== targets[targets.length - 1] && !session.panel()) {
+          const entry = session.control();
+          (entry?.querySelector('input') || entry)?.click();
+          if (!await waitForDateState(session.panel)) return 'popup-timeout';
+        }
+      }
+      return 'filled';
+    } finally { await session.close(); }
+  }
+
+  async function setMokaCalendar(record, value, date, session) {
+    const yearText = () => cleanText(session.panel()?.querySelector("[class*='sd-basic-selector-year-']")?.textContent);
+    const currentYear = () => /^\d{4}年?$/.test(yearText()) ? Number(yearText().replace('年', '')) : null;
+    const deadline = Date.now() + 60000;
+    for (let count = 0; currentYear() !== date.year; count++) {
+      const previous = currentYear();
+      if (!previous || count >= 200 || Date.now() > deadline) return 'date-navigation-failed';
+      const direction = date.year > previous ? 'doubleRight' : 'doubleLeft';
+      const button = session.panel()?.querySelector(`[class*='sd-Icon-icon${direction}-']`);
+      if (!button || mokaDisabled(button)) return 'date-navigation-failed';
+      button.click();
+      if (!await waitForDateState(() => currentYear() && currentYear() !== previous)) return 'date-navigation-failed';
+      if (Math.abs(date.year - currentYear()) >= Math.abs(date.year - previous)) return 'date-navigation-failed';
+    }
+    const months = () => Array.from(session.panel()?.querySelectorAll("[class*='sd-basic-year-item-']") || [])
+      .filter((el) => visible(el) && !mokaDisabled(el) && mokaMonthNumber(el.textContent));
+    if (!months().length) {
+      const monthHeading = session.panel()?.querySelector("[class*='sd-basic-selector-month-']");
+      if (!monthHeading || mokaDisabled(monthHeading)) return 'option-not-found';
+      monthHeading.click();
+      if (!await waitForDateState(() => months().length)) return 'popup-timeout';
+    }
+    const month = months().find((el) => mokaMonthNumber(el.textContent) === date.month);
+    if (!month || currentYear() !== date.year) return 'option-not-found';
+    month.click();
+    if (date.day === null) return await waitForDateState(() => mokaValueMatches(record, value)) ? 'filled' : 'verification-failed';
+    const dayCell = () => {
+      if (currentYear() !== date.year || mokaMonthNumber(session.panel()?.querySelector("[class*='sd-basic-selector-month-']")?.textContent) !== date.month) return null;
+      const matches = Array.from(session.panel()?.querySelectorAll("[class*='sd-basic-date-item-']") || [])
+        .filter((el) => visible(el) && !mokaDisabled(el) && !el.closest("[class*='sd-basic-fade-']") && cleanText(el.textContent) === String(date.day));
+      return matches.length === 1 ? matches[0] : null;
+    };
+    const day = await waitForDateState(dayCell);
+    if (!day) return 'option-not-found';
+    day.click();
+    return await waitForDateState(() => mokaValueMatches(record, value)) ? 'filled' : 'verification-failed';
   }
 
   function setNativeValue(element, value) {
@@ -539,6 +760,7 @@
 
   function hasMeaningfulValue(record) {
     const element = record.element;
+    if (record.mokaLocator && mokaControlFor(element) === element) return Boolean(readMokaValue(element));
     if (record.dateLocator) return Boolean(readControlValue(element));
     // Moka sd-Select: check display value
     if (isMoka() && element.matches && element.matches(MOKA_SEL.selectContainer)) {
@@ -840,113 +1062,6 @@
       "[multiple]"
     ].join(",")) || Boolean(element.querySelector("[aria-multiselectable='true']"));
 
-    // ===== Moka month-range-select：分离式年/月选择器（优先直接输入） =====
-    const monthRange = element.closest(".month-range-select");
-    if (monthRange && isDateField) {
-      const dateMatch = String(value).match(/^(\d{4})-(\d{2})/);
-      if (dateMatch) {
-        const yyyy = dateMatch[1];
-        const mm = String(parseInt(dateMatch[2], 10));
-        // 查找内部 input（宽泛匹配，覆盖 Moka sd-Select 的各种变体）
-        const innerInput = element.querySelector(
-          "input[type='text'], input[type='number'], input:not([type]), input"
-        );
-        const innerPlaceholder = innerInput ? (innerInput.getAttribute("placeholder") || "") : "";
-        const isYear = /年/.test(innerPlaceholder);
-        const isMonth = /月/.test(innerPlaceholder);
-        if (!isYear && !isMonth) return "option-not-found";
-        const fillValue = isYear ? yyyy : mm;
-
-        // 策略 1：直接输入（Moka 日期框支持直接填写）
-        if (innerInput && !innerInput.disabled) {
-          const wasReadOnly = innerInput.readOnly;
-          if (wasReadOnly) innerInput.removeAttribute("readOnly");
-          setNativeValue(innerInput, fillValue);
-          // setNativeValue 已触发 input/change/blur，只需额外触发 Enter 让 Moka 确认选择
-          innerInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-          await wait(250);
-          if (wasReadOnly) innerInput.setAttribute("readOnly", "");
-          // 优先用 innerInput.value（即时生效），再用 readControlValue（可能滞后）
-          const inputVal = cleanText(innerInput.value, 120);
-          const displayVal = readControlValue(element);
-          const current = (inputVal && !/请选择|select|choose/i.test(inputVal)) ? inputVal : displayVal;
-          if (current && !/请选择|select|choose/i.test(current)) {
-            return "filled";
-          }
-        }
-
-        // 策略 2：直接输入失败，回退到点击下拉选择
-        const mokaClickable = element.querySelector(`${MOKA_SEL.displayValue},${MOKA_SEL.addon}`) || element;
-        mokaClickable.click();
-        await wait(350);
-
-        const popup = findPopupContainer();
-        const searchRoot = popup || document;
-        const mokaOptionSelectors = [
-          "[role='option']",
-          ".sd-Select-option",
-          "[class*='select-option']",
-          "[class*='Select-option']",
-          "[class*='dropdown'] li",
-          "[class*='dropdown'] [class*='item']",
-          "[class*='portal'] li",
-          "[class*='portal'] [class*='item']",
-          "li"
-        ];
-        let mokaOpts = [];
-        let retry = 0;
-        while (!mokaOpts.length && retry < 3) {
-          mokaOpts = meaningfulOptions(
-            Array.from(searchRoot.querySelectorAll(mokaOptionSelectors.join(",")))
-              .filter((el) => visible(el))
-          );
-          if (!mokaOpts.length) { await wait(300); retry += 1; }
-        }
-
-        // 匹配年或月
-        const pats = isYear ? yearPatterns(fillValue) : monthPatterns(fillValue);
-        const matched = matchDateCell(mokaOpts, pats);
-        if (matched) {
-          matched.click();
-          return "filled";
-        }
-        // 尝试直接点击匹配文本
-        const normFill = globalThis.JobAutofillMatcher.normalize(fillValue);
-        const direct = mokaOpts.find((opt) =>
-          globalThis.JobAutofillMatcher.normalize(opt.innerText || opt.textContent) === normFill
-        );
-        if (direct) { direct.click(); return "filled"; }
-
-        element.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-        return "option-not-found";
-      }
-    }
-
-    // ===== 策略 A：Moka 控件优先尝试直接输入 =====
-    // Ant Design / Element 等组件的搜索框即使 value 被写入，也不代表选项已经选中。
-    // 这些组件必须继续走下方的“打开下拉并点击选项”逻辑，不能仅凭搜索框有值就返回成功。
-    const innerInput = element.querySelector(
-      ".phoenix-select__input, input[type='text'], input:not([type]), input[type='month'], input[type='date'], input[type='number']"
-    );
-    const allowDirectInput = isMoka() &&
-      element.matches &&
-      element.matches(MOKA_SEL.selectContainer);
-    // 若输入框被禁用（如 Phoenix date picker 的 disabled input），跳过输入策略
-    if (allowDirectInput && innerInput && !innerInput.disabled && !innerInput.readOnly) {
-      for (const candidate of searchTexts) {
-        setNativeValue(innerInput, candidate);
-        innerInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-        await wait(250);
-        // 优先用 innerInput.value（即时生效），再用 readControlValue（显示值可能滞后）
-        const inputVal = cleanText(innerInput.value, 120);
-        const displayVal = readControlValue(element);
-        const current = (inputVal && !/请选择|select|choose/i.test(inputVal)) ? inputVal : displayVal;
-        if (current && !/请选择|select|choose/i.test(current)) {
-          return "filled";
-        }
-      }
-    }
-
     // ===== 策略 B：点击打开下拉框，查找匹配选项 =====
     const clickable = element.querySelector([
       ".ant-select-selector",
@@ -1194,15 +1309,17 @@
     if (record.dateLocator) {
       if (!resolveAtsxDate(record)) return "stale-locator";
       if (record.element.closest("[aria-disabled='true'],[disabled],[class*='disabled']")) return "disabled";
-    } else if (isMoka()) {
+    } else if (isMoka() && record.mokaLocator) {
       const resolved = resolveMokaElement(record);
       if (!resolved) return "stale-locator";
       record.element = resolved;
+      record.descriptor.disabled = mokaDisabled(resolved);
     }
     const element = record.element;
     if (record.match.sensitive || record.match.score < 60) return "skipped";
     if (value === undefined || value === null || value === "") return "missing-value";
     if (record.descriptor.disabled) return "disabled";
+    if (record.mokaLocator && mokaDisabled(element)) return "disabled";
     if (record.descriptor.type === "file") return "manual-required";
     if (!options.overwrite && hasMeaningfulValue(record)) return "existing-value";
 
@@ -1217,6 +1334,10 @@
     const type = record.descriptor.type;
 
     if (record.dateLocator) return setAtsxMonth(record, effectiveValue);
+    if (record.mokaLocator && mokaControlFor(element) === element) {
+      return setMokaControl(record, effectiveValue);
+    }
+    if (record.mokaLocator && element.readOnly) return "manual-required";
 
     if (record.descriptor.role === "combobox" && tag !== "select") {
       // 点击框（含日期选择器），统一由 setCustomCombobox 处理
@@ -1278,8 +1399,10 @@
   }
 
   function readFieldValue(record) {
-    const element = record.dateLocator ? resolveAtsxDate(record) : record.element;
+    const element = record.dateLocator ? resolveAtsxDate(record) :
+      record.mokaLocator ? resolveMokaElement(record) : record.element;
     if (!element) return "";
+    if (record.mokaLocator && mokaControlFor(element) === element) return readMokaValue(element);
     if (record.dateLocator) return readControlValue(element);
     if (element.tagName === "SELECT") {
       if (element.multiple) return Array.from(element.selectedOptions).map((option) => option.textContent || option.value).join("、");
@@ -1303,6 +1426,9 @@
   }
 
   function verificationMatches(record, expected) {
+    if (record.mokaLocator && mokaControlFor(record.element) === record.element) {
+      return mokaValueMatches(record, expected);
+    }
     if (record.dateLocator) {
       const target = String(expected).match(/^(\d{4})-(0[1-9]|1[0-2])(?:-\d{2})?$/);
       return Boolean(target && readFieldValue(record) === `${target[1]}-${target[2]}`);
@@ -1322,10 +1448,12 @@
   async function setField(record, value, options) {
     const status = await performSetField(record, value, options);
     if (status !== "filled") return status;
+    const expected = options && record.match.path === "application.first_choice_location"
+      ? (record.descriptor.role === "combobox" ? value : options.locationText) : value;
+    if (record.mokaLocator) return await waitForDateState(() => verificationMatches(record, expected))
+      ? "verified-filled" : "verification-failed";
     await new Promise((resolve) => setTimeout(resolve, 30));
-    if (verificationMatches(record, options && record.match.path === "application.first_choice_location"
-      ? (record.descriptor.role === "combobox" ? value : options.locationText)
-      : value)) return "verified-filled";
+    if (verificationMatches(record, expected)) return "verified-filled";
     return "verification-failed";
   }
 
