@@ -4,6 +4,7 @@ importScripts("shared/ai-match.js", "shared/job-fetch.js");
 
 const CACHE_KEY = "jobMatchCache";
 const CACHE_LIMIT = 100;
+const MODEL_REQUEST_TIMEOUT_MS = 60000;
 const activeTasks = new Map();
 let cacheWriteQueue = Promise.resolve();
 
@@ -131,7 +132,7 @@ function cacheWrite(key, result) {
 
 async function callModel(settings, apiKey, profile, job, signal) {
   const helper = globalThis.JobAutofillAiMatch;
-  const payload = await withTimeout(signal, 25000, "模型请求", async (requestSignal) => {
+  const payload = await withTimeout(signal, MODEL_REQUEST_TIMEOUT_MS, "模型请求", async (requestSignal) => {
     const response = await fetch(helper.chatEndpoint(settings.baseUrl), {
       method: "POST",
       headers: {

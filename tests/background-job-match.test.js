@@ -11,6 +11,7 @@ let runtimeListener;
 let tabUpdatedListener;
 let tabRemovedListener;
 let fetchImpl;
+const scheduledTimeouts = [];
 let localState = {
   aiSettings: {
     baseUrl: "https://api.example.com/v1",
@@ -30,7 +31,10 @@ const context = vm.createContext({
   TextDecoder,
   atob,
   crypto: webcrypto,
-  setTimeout,
+  setTimeout(callback, timeoutMs) {
+    scheduledTimeouts.push(timeoutMs);
+    return setTimeout(callback, timeoutMs);
+  },
   clearTimeout,
   console,
   fetch(...args) { return fetchImpl(...args); },
@@ -110,6 +114,7 @@ function send(message, tabId) {
   }, 7);
   assert(result.ok && result.result.level === "匹配", `background analysis did not complete: ${JSON.stringify(result)}`);
   assert(calls.length === 2 && calls[0].includes("jobs.example.com") && calls[1].includes("api.example.com"), "JD and model were not requested directly");
+  assert(scheduledTimeouts.includes(60000), "model request timeout is not 60 seconds");
   assert(Object.keys(localState.jobMatchCache).length === 1, "completed analysis was not written to extension cache");
 
   const mokaKeyText = "624844be764fdf30";
@@ -184,7 +189,7 @@ function send(message, tabId) {
   assert(!cancelled.ok && cancelled.error.includes("任务已取消"), "navigation did not cancel the background request");
   assert(typeof tabRemovedListener === "function", "tab close cancellation listener was not registered");
 
-  console.log("Background job-match tests passed: 8");
+  console.log("Background job-match tests passed: 9");
 })().catch((error) => {
   console.error(error);
   process.exit(1);
