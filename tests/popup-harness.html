@@ -21,26 +21,6 @@
     <label class="overwrite"><input id="overwrite" type="checkbox">覆盖</label>
     <section class="match-action"><button id="match-jobs" type="button">AI分析当前页岗位匹配度</button></section>
     <div id="status"></div>
-    <section id="summary" hidden>
-      <div class="metrics">
-        <span><strong id="matched">0</strong></span>
-        <span><strong id="ready">0</strong></span>
-        <span><strong id="missing">0</strong></span>
-      </div>
-      <ul id="field-list"></ul>
-    </section>
-    <section id="missing-editor" class="panel" hidden>
-      <div class="panel-heading">
-        <div><h2>需要补填</h2><p>修改后自动保存</p></div>
-        <button id="bind-json" type="button">绑定 JSON</button>
-      </div>
-      <div id="sync-state"></div>
-      <div id="missing-list"></div>
-    </section>
-    <section id="attention" class="panel" hidden>
-      <h2>需要你处理</h2>
-      <ul id="attention-list"></ul>
-    </section>
     <section id="history" class="panel">
       <div class="panel-heading">
         <div><h2>投递历史</h2><p>测试</p></div>
@@ -188,7 +168,6 @@
     };
   </script>
   <script src="../shared/profile.js?v=0.12.2" charset="utf-8"></script>
-  <script src="../shared/matcher.js?v=0.12.2" charset="utf-8"></script>
   <script src="../shared/storage.js?v=0.12.2" charset="utf-8"></script>
   <script src="../shared/xlsx-export.js?v=0.12.2" charset="utf-8"></script>
   <script src="../popup.js?v=0.12.2" charset="utf-8"></script>
@@ -252,22 +231,6 @@
       const xlsxBytes = new Uint8Array(await globalThis.__xlsxBlob.arrayBuffer());
       const xlsxDownloadName = globalThis.__downloadName;
 
-      document.getElementById("scan").click();
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      const rows = Array.from(document.querySelectorAll(".missing-row"));
-      const values = {
-        "推荐码": "无",
-        "结束时间（网页第 2 段）": "2027-06",
-        "是否接受调剂": "是"
-      };
-      rows.forEach((row) => {
-        const label = row.querySelector("label").textContent;
-        const input = row.querySelector("input,textarea");
-        input.value = values[label] || "";
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const profile = globalThis.__memoryStorage.candidateProfile;
       const checks = {
         initial_history_visible: initialRows === 2,
         same_company_multiple_positions: initialRows === 2,
@@ -282,14 +245,10 @@
           xlsxBytes[0] === 0x50 &&
           xlsxBytes[1] === 0x4B &&
           xlsxDownloadName.endsWith(".xlsx"),
-        missing_editor_visible: !document.getElementById("missing-editor").hidden,
-        three_missing_rows: rows.length === 3,
-        referral_saved: profile.application.referral_code === "无",
-        education_end_saved: profile.education[0].end_date === "2027-06",
-        custom_answer_saved: profile.additional.custom_answers["是否接受调剂"] === "是",
-        conflict_is_explicit: document.getElementById("attention-list").textContent.includes(
-          "网页为“本科”，档案为“硕士”"
-        )
+        removed_diagnostics_absent:
+          !document.getElementById("summary") &&
+          !document.getElementById("missing-editor") &&
+          !document.getElementById("attention")
       };
       const passed = Object.values(checks).every(Boolean);
       document.body.dataset.testStatus = passed ? "passed" : "failed";

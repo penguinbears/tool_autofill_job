@@ -114,46 +114,6 @@ button:disabled {
   font-size: 13px;
 }
 
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.metrics span {
-  border: 1px solid #e1e6ed;
-  border-radius: 8px;
-  background: #fff;
-  padding: 8px;
-  text-align: center;
-  font-size: 11px;
-  color: #637083;
-}
-
-.metrics strong {
-  display: block;
-  color: #17202a;
-  font-size: 18px;
-}
-
-#field-list {
-  max-height: 210px;
-  overflow: auto;
-  list-style: none;
-  margin: 12px 0 0;
-  padding: 0;
-}
-
-#field-list li {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  padding: 8px 2px;
-  border-bottom: 1px solid #e4e8ee;
-  font-size: 12px;
-}
-
 .panel {
   margin-top: 14px;
   border: 1px solid #dfe5ec;
@@ -178,71 +138,6 @@ button:disabled {
   margin: 4px 0 0;
   font-size: 11px;
 }
-
-.sync-state {
-  margin: 9px 0;
-  border-radius: 6px;
-  background: #f2f5f8;
-  color: #647282;
-  padding: 7px 8px;
-  font-size: 11px;
-}
-
-.missing-row {
-  display: grid;
-  grid-template-columns: minmax(120px, .8fr) minmax(180px, 1.2fr);
-  gap: 9px;
-  align-items: center;
-  padding: 8px 0;
-  border-top: 1px solid #edf0f4;
-}
-
-.missing-row label {
-  color: #354454;
-  font-size: 12px;
-}
-
-.missing-row input,
-.missing-row textarea {
-  width: 100%;
-  border: 1px solid #cfd7e1;
-  border-radius: 6px;
-  padding: 7px 8px;
-  color: #17202a;
-  background: #fff;
-  font: inherit;
-  font-size: 12px;
-}
-
-.missing-row textarea {
-  min-height: 58px;
-  resize: vertical;
-}
-
-.field-save-state {
-  grid-column: 2;
-  min-height: 12px;
-  margin-top: -5px;
-  color: #738091;
-  font-size: 10px;
-}
-
-.attention {
-  border-color: #f0d8ad;
-  background: #fffaf0;
-}
-
-.attention ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  color: #825b17;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.ok { color: #087f5b; }
-.warn { color: #b26a00; }
-.muted { color: #7b8794; }
 
 /* ---- 投递历史 ---- */
 

@@ -2,13 +2,6 @@
   "use strict";
 
   const statusNode = document.getElementById("status");
-  const summaryNode = document.getElementById("summary");
-  const listNode = document.getElementById("field-list");
-  const missingEditorNode = document.getElementById("missing-editor");
-  const missingListNode = document.getElementById("missing-list");
-  const syncStateNode = document.getElementById("sync-state");
-  const attentionNode = document.getElementById("attention");
-  const attentionListNode = document.getElementById("attention-list");
   const historyNode = document.getElementById("history");
   const historyListNode = document.getElementById("history-list");
   const clearHistoryButton = document.getElementById("clear-history");
@@ -21,7 +14,6 @@
   const historyCountNode = document.getElementById("history-count");
   const historyEmptyNode = document.getElementById("history-empty");
   const matchJobsButton = document.getElementById("match-jobs");
-  let currentProfile = null;
   let allHistory = [];
   let historyFilter = "全部";
 
@@ -144,256 +136,6 @@
     } finally {
       matchJobsButton.disabled = false;
     }
-  }
-
-  function labelFor(field) {
-    const base = field.descriptor.label ||
-      field.descriptor.ariaLabel ||
-      field.descriptor.placeholder ||
-      field.descriptor.name ||
-      field.descriptor.id ||
-      "未命名字段";
-    return field.match.path && field.match.path.includes("[]")
-      ? `${base}（${field.recordMatch?.identity ? field.recordMatch.identity + "，" : ""}网页第 ${Number(field.repeatPosition || 0) + 1} 段）`
-      : base;
-  }
-
-  function fieldIdentity(field) {
-    if (field.customKey) return `custom:${field.customKey}`;
-    return `${field.match.path || "unmatched"}:${field.arrayIndex || 0}:${labelFor(field)}`;
-  }
-
-  function describeFileSync(fileSync) {
-    if (!fileSync) return "档案已保存到扩展；尚未绑定磁盘 JSON 文件。";
-    if (fileSync.synced) return `已自动同步：${fileSync.fileName || "candidate-profile.json"}`;
-    if (fileSync.reason === "not-bound") return "已保存到扩展；点击“绑定 JSON”后可自动同步磁盘文件。";
-    if (fileSync.reason === "permission-required") {
-      return `已保存到扩展；${fileSync.fileName || "JSON 文件"}需要重新授权写入。`;
-    }
-    if (fileSync.reason === "write-failed") return `扩展已保存，但 JSON 写入失败：${fileSync.error || "未知错误"}`;
-    return "档案已保存到扩展。";
-  }
-
-  async function refreshBindingStatus() {
-    const binding = await globalThis.JobAutofillStorage.bindingStatus();
-    if (!binding.bound) {
-      syncStateNode.textContent = "磁盘 JSON：未绑定。浏览器安全要求首次手动选择文件。";
-    } else if (binding.permission === "granted") {
-      syncStateNode.textContent = `磁盘 JSON：已绑定 ${binding.fileName}，修改会自动同步。`;
-    } else {
-      syncStateNode.textContent = `磁盘 JSON：已绑定 ${binding.fileName}，但需要重新授权。`;
-    }
-  }
-
-  function missingCandidates(fields) {
-    const seen = new Set();
-    return fields.filter((field) => {
-      if (field.match.sensitive) return false;
-      if (field.recordMatch?.profileIndex < 0) return false;
-      const needsValue = field.match.path
-        ? !field.hasValue
-        : Boolean(field.descriptor.required);
-      if (!needsValue) return false;
-      const identity = fieldIdentity(field);
-      if (seen.has(identity)) return false;
-      seen.add(identity);
-      return true;
-    });
-  }
-
-  function updateProfileFromField(field, value) {
-    if (field.recordMatch?.profileIndex < 0) return;
-    if (field.customKey) {
-      if (!currentProfile.additional) currentProfile.additional = {};
-      if (!currentProfile.additional.custom_answers) currentProfile.additional.custom_answers = {};
-      currentProfile.additional.custom_answers[field.customKey] = value;
-      return;
-    }
-    if (field.match.path) {
-      globalThis.JobAutofillProfile.setValue(
-        currentProfile,
-        field.match.path,
-        field.arrayIndex || 0,
-        value
-      );
-    }
-  }
-
-  async function persistField(field, input, stateNode) {
-    updateProfileFromField(field, input.value);
-    stateNode.textContent = "正在保存…";
-    try {
-      const saved = await globalThis.JobAutofillStorage.saveProfile(currentProfile);
-      currentProfile = saved.profile;
-      field.hasValue = Boolean(input.value);
-      field.previewValue = input.value;
-      stateNode.textContent = describeFileSync(saved.fileSync);
-      syncStateNode.textContent = describeFileSync(saved.fileSync);
-    } catch (error) {
-      stateNode.textContent = `保存失败：${error.message || error}`;
-      stateNode.className = "field-save-state warn";
-    }
-  }
-
-  function createEditor(field) {
-    const row = document.createElement("div");
-    row.className = "missing-row";
-    const label = document.createElement("label");
-    label.textContent = labelFor(field);
-
-    const longAnswer = field.descriptor.tag === "textarea" ||
-      /描述|职责|说明|评价|补充|经历|项目/i.test(label.textContent);
-    const input = document.createElement(longAnswer ? "textarea" : "input");
-    if (!longAnswer) {
-      input.type = /date|时间|日期/i.test(`${field.descriptor.type} ${label.textContent}`)
-        ? "text"
-        : "text";
-    }
-    input.value = field.previewValue || "";
-    input.placeholder = field.customKey ? "填写后作为该网页字段的自定义答案" : "请输入并自动保存";
-    input.setAttribute("aria-label", label.textContent);
-
-    const state = document.createElement("span");
-    state.className = "field-save-state";
-    let rowSaveTimer = null;
-
-    input.addEventListener("input", () => {
-      state.textContent = "等待保存…";
-      clearTimeout(rowSaveTimer);
-      rowSaveTimer = setTimeout(() => persistField(field, input, state), 450);
-    });
-    input.addEventListener("change", () => {
-      clearTimeout(rowSaveTimer);
-      persistField(field, input, state);
-    });
-
-    row.append(label, input, state);
-    return row;
-  }
-
-  function renderMissingEditor(fields) {
-    const missing = missingCandidates(fields);
-    missingListNode.textContent = "";
-    missing.forEach((field) => missingListNode.appendChild(createEditor(field)));
-    missingEditorNode.hidden = missing.length === 0;
-    if (!missingEditorNode.hidden) refreshBindingStatus();
-  }
-
-  function renderAttention(fields, results, expansion) {
-    const messages = [];
-    fields.forEach((field) => {
-      if (field.recordMatch?.profileIndex < 0) {
-        messages.push(`${labelFor(field)}：未找到唯一对应的档案记录，无法覆盖这段经历，请核对学校或公司名称。`);
-      } else if (field.match.sensitive) {
-        messages.push(`${labelFor(field)}：敏感字段，默认不自动填写。`);
-      } else if (!field.match.path && field.descriptor.required) {
-        messages.push(`${labelFor(field)}：未识别，请在“需要补填”中提供自定义答案。`);
-      } else if (field.descriptor.type === "file") {
-        messages.push(`${labelFor(field)}：浏览器限制，需手动选择文件。`);
-      }
-      const currentValue = String(field.descriptor.currentValue || "").trim();
-      const profileValue = String(field.previewValue || "").trim();
-      const comparable = field.match.path &&
-        field.hasValue &&
-        currentValue &&
-        profileValue &&
-        field.descriptor.tag !== "textarea" &&
-        field.descriptor.type !== "file" &&
-        field.match.path !== "application.first_choice_location";
-      if (comparable && (
-        globalThis.JobAutofillMatcher.normalize(currentValue) !==
-        globalThis.JobAutofillMatcher.normalize(profileValue)
-      )) {
-        messages.push(
-          `${labelFor(field)}：网页为“${currentValue.slice(0, 40)}”，档案为“${profileValue.slice(0, 40)}”，请确认后手动修改或勾选覆盖。`
-        );
-      }
-    });
-    (results || []).forEach((field) => {
-      if (field.status === "identity-not-found" || field.status === "identity-ambiguous") {
-        messages.push(`${labelFor(field)}：当前经历“${field.recordMatch?.identity || "未命名"}”${field.status === "identity-ambiguous" ? "对应多条档案" : "未找到对应档案"}，已跳过覆盖，请核对学校或公司名称。`);
-      } else if (field.status === "invalid-date-range") {
-        messages.push(`${labelFor(field)}：档案中这段经历的结束时间早于开始时间，已跳过日期填写，请先修正档案。`);
-      } else if (field.status === "verification-failed") {
-        messages.push(`${labelFor(field)}：${field.dateFailure || "网页回读值与档案不一致，请检查该控件是否接受了填写"}。`);
-      } else if (field.status === "option-not-found") {
-        messages.push(`${labelFor(field)}：${field.dateFailure || "下拉框没有找到匹配选项，请提供展开后的选项截图"}。`);
-      } else if (field.status === "popup-timeout") {
-        messages.push(`${labelFor(field)}：等待当前字段的下拉面板超时，请展开控件后重试。`);
-      } else if (field.status === "date-navigation-failed") {
-        messages.push(`${labelFor(field)}：日期面板未切换到档案中的年份，请检查年份按钮或可选日期范围。`);
-      } else if (field.status === "invalid-date") {
-        messages.push(`${labelFor(field)}：档案日期无效，请使用 YYYY-MM-DD 或 YYYY-MM 格式并检查年月日。`);
-      } else if (field.status === "stale-locator") {
-        messages.push(`${labelFor(field)}：页面重绘后未找到对应控件，请重新扫描。`);
-      } else if (field.status === "disabled") {
-        messages.push(`${labelFor(field)}：网页控件被禁用，可能需先完成前置字段。`);
-      } else if (field.status === "value-not-matched") {
-        messages.push(`${labelFor(field)}：单选/多选值不匹配，请告诉我网页选项。`);
-      } else if (field.status === "manual-required") {
-        messages.push(`${labelFor(field)}：需要手动操作。`);
-      }
-    });
-    (expansion || []).forEach((item) => {
-      if (item.status !== "complete") {
-        messages.push(`${item.label}：需要 ${item.target} 段，仅发现 ${item.after} 段；${item.message}`);
-      }
-    });
-
-    const unique = Array.from(new Set(messages));
-    attentionListNode.textContent = "";
-    unique.forEach((message) => {
-      const item = document.createElement("li");
-      item.textContent = message;
-      attentionListNode.appendChild(item);
-    });
-    attentionNode.hidden = unique.length === 0;
-  }
-
-  function render(fields, results, expansion) {
-    const matched = fields.filter((field) => field.match.path);
-    const ready = matched.filter((field) => field.hasValue);
-    const missing = missingCandidates(fields);
-
-    document.getElementById("matched").textContent = String(matched.length);
-    document.getElementById("ready").textContent = String(ready.length);
-    document.getElementById("missing").textContent = String(missing.length);
-    listNode.textContent = "";
-
-    fields
-      .filter((field) => field.match.path || field.descriptor.required)
-      .slice(0, 80)
-      .forEach((field) => {
-        const li = document.createElement("li");
-        const name = document.createElement("span");
-        const state = document.createElement("span");
-        name.textContent = labelFor(field);
-
-        if (field.match.sensitive) {
-          state.textContent = "敏感项已跳过";
-          state.className = "warn";
-        } else if (!field.match.path) {
-          state.textContent = "需自定义";
-          state.className = "warn";
-        } else if (field.recordMatch?.profileIndex < 0) {
-          state.textContent = "经历对应关系待确认";
-          state.className = "warn";
-        } else if (!field.hasValue) {
-          state.textContent = "缺资料，可在下方填写";
-          state.className = "warn";
-        } else if (field.descriptor.type === "file") {
-          state.textContent = "需手动上传";
-          state.className = "warn";
-        } else {
-          state.textContent = field.match.path;
-          state.className = "ok";
-        }
-        li.append(name, state);
-        listNode.appendChild(li);
-      });
-    summaryNode.hidden = false;
-    renderMissingEditor(fields);
-    renderAttention(fields, results, expansion);
   }
 
   function formatHistoryDate(isoString) {
@@ -700,26 +442,24 @@
 
   async function send(type) {
     try {
-      currentProfile = await globalThis.JobAutofillStorage.getProfile();
+      const profile = await globalThis.JobAutofillStorage.getProfile();
       const tab = await activeTab();
       if (!tab || !tab.id) throw new Error("没有可用的当前网页");
       await ensureInjected(tab.id);
       const overwrite = document.getElementById("overwrite").checked;
       const response = await chrome.tabs.sendMessage(tab.id, {
         type,
-        profile: currentProfile,
+        profile,
         overwrite
       });
       if (!response || !response.ok) throw new Error("网页未响应");
       if (type === "JOB_AUTOFILL_SCAN") {
-        render(response.fields || [], [], []);
-        setStatus(`已扫描：${response.title || "当前页面"}。缺失资料可直接在下方填写。`);
+        setStatus(`已扫描：${response.title || "当前页面"}。`);
       } else {
         const results = response.results || [];
         const filled = results.filter((item) => item.status === "verified-filled").length;
         const missing = results.filter((item) => item.status === "missing-value").length;
         const preserved = results.filter((item) => item.status === "existing-value").length;
-        render(results, results, response.expansion || []);
         const added = (response.expansion || []).reduce((sum, item) => sum + Math.max(0, item.after - item.before), 0);
         const failed = results.filter((item) => ["verification-failed", "popup-timeout", "date-navigation-failed",
           "invalid-date", "stale-locator", "option-not-found"].includes(item.status)).length;
@@ -742,26 +482,6 @@
   document.getElementById("open-ai").addEventListener("click", () => {
     chrome.tabs.create({ url: chrome.runtime.getURL("ai.html") });
   });
-  document.getElementById("bind-json").addEventListener("click", async () => {
-    try {
-      const bound = await globalThis.JobAutofillStorage.bindProfileFile();
-      if (!bound.ok) {
-        if (bound.reason === "file-picker-unavailable") {
-          setStatus("当前 Edge 页面不支持直接绑定，请在“档案”页面操作。", true);
-        } else {
-          setStatus(`JSON 绑定失败：${bound.error || bound.reason}`, true);
-        }
-        return;
-      }
-      currentProfile = bound.profile;
-      syncStateNode.textContent = `已绑定并同步：${bound.fileName}`;
-      setStatus("JSON 文件已绑定，后续补填会自动同步。");
-    } catch (error) {
-      if (error && error.name === "AbortError") return;
-      setStatus(`JSON 绑定失败：${error.message || error}`, true);
-    }
-  });
-
   clearHistoryButton.addEventListener("click", async () => {
     if (!allHistory.length) return;
     if (!confirm(`确定清空全部 ${allHistory.length} 条投递记录吗？此操作无法撤销。`)) return;
@@ -787,10 +507,8 @@
   });
 
   globalThis.JobAutofillStorage.getProfile().then(async (profile) => {
-    currentProfile = profile;
     const hasIdentity = Boolean(profile.personal.full_name || profile.personal.email || profile.personal.phone);
     setStatus(hasIdentity ? "档案已加载，请扫描当前页。" : "请先打开“档案”导入标准 JSON。");
-    await refreshBindingStatus();
     await loadAndRenderHistory();
   });
 })();

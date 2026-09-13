@@ -33,31 +33,6 @@
     </section>
 
     <div id="status" role="status">请先导入候选人档案。</div>
-    <section id="summary" hidden>
-      <div class="metrics">
-        <span><strong id="matched">0</strong> 可匹配</span>
-        <span><strong id="ready">0</strong> 可填写</span>
-        <span><strong id="missing">0</strong> 缺资料</span>
-      </div>
-      <ul id="field-list"></ul>
-    </section>
-
-    <section id="missing-editor" class="panel" hidden>
-      <div class="panel-heading">
-        <div>
-          <h2>需要补填</h2>
-          <p>修改后自动保存；再次点击填充即可写入网页。</p>
-        </div>
-        <button id="bind-json" class="ghost" type="button">绑定 JSON</button>
-      </div>
-      <div id="sync-state" class="sync-state"></div>
-      <div id="missing-list"></div>
-    </section>
-
-    <section id="attention" class="panel attention" hidden>
-      <h2>需要你处理</h2>
-      <ul id="attention-list"></ul>
-    </section>
 
     <section id="history" class="panel history-panel">
       <div class="panel-heading">
@@ -127,7 +102,6 @@
     <footer>文件上传、验证码和最终提交始终由你完成。</footer>
   </main>
   <script src="shared/profile.js"></script>
-  <script src="shared/matcher.js"></script>
   <script src="shared/storage.js"></script>
   <script src="shared/xlsx-export.js"></script>
   <script src="popup.js"></script>

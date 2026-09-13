@@ -35,10 +35,9 @@
 1. 点击扩展图标，进入“档案”。
 2. 导入自己的候选人 JSON，或点击“绑定并同步 JSON”选择本地档案文件。
 3. 打开招聘网站的网申页面。
-4. 点击“扫描当前页”，检查识别结果。
-5. 在“需要补填”区域补充缺失资料，必要时再开启覆盖已有内容。
-6. 点击“填充已匹配项”，逐项复核网页中的实际结果。
-7. 手动上传简历、处理验证码并提交申请。
+4. 点击“扫描当前页”确认页面可以被识别，必要时开启覆盖已有内容。
+5. 点击“填充已匹配项”，逐项复核网页中的实际结果。
+6. 手动上传简历、处理验证码并提交申请。
 
 ### 岗位匹配
 
@@ -79,7 +78,7 @@
 不依赖浏览器的核心逻辑测试可以直接运行：
 
 ```powershell
-node --test tests/background-job-match.test.js tests/job-fetch.test.js tests/job-list-moka.test.js tests/ai-match.test.js tests/ai-settings.test.js tests/history-storage.test.js tests/matcher.test.js tests/semantic-provider.test.js tests/xlsx-export.test.js
+node --test tests/background-job-match.test.js tests/job-fetch.test.js tests/job-list-moka.test.js tests/ai-match.test.js tests/ai-settings.test.js tests/history-storage.test.js tests/matcher.test.js tests/popup-ui.test.js tests/semantic-provider.test.js tests/xlsx-export.test.js
 ```
 
 DOM、日期组件和履历上下文测试需要先在本地安装 Playwright，然后运行完整测试集：
