@@ -2,7 +2,7 @@
 
 一个本地运行的 Chrome / Edge 浏览器扩展，用候选人档案扫描并填写招聘网站的网申表单。扩展始终保留人工复核环节，不会上传本地文件、处理验证码或点击最终提交按钮。
 
-当前版本：`0.14.4`
+当前版本：`0.15.0`
 
 ## 当前功能
 
@@ -16,7 +16,8 @@
 - 填写后回读网页值，区分验证成功、保留原值、资料缺失和验证失败。
 - 将无法识别的必填题保存为可复用的自定义答案。
 - 自动或手动记录投递历史，支持编辑、分类、筛选、排序和导出 Excel。
-- 在招聘列表页识别最多 10 个岗位，逐条打开详情页并提取 JD；已提供 Moka 岗位列表专用适配。
+- 识别当前分页已经加载的全部岗位；Moka 通过后台接口获取 JD，其他网站通过后台 HTTP 获取，不创建岗位详情标签页。
+- 同时并行获取并分析当前分页的岗位；刷新、关闭或跳转原列表页会立即取消当前批次。
 - 使用用户配置的 OpenAI-compatible 接口分析岗位匹配度，并在原列表中显示四档结果和详细理由。
 - 提供独立 AI 页面配置 Base URL、API Key、模型、Prompt，以及本地文档或 GitHub Skill。
 
@@ -45,8 +46,9 @@
 2. 如需额外分析规则，可选择本地 Markdown/TXT/JSON 文档，或填写公开 GitHub 仓库、目录、SKILL.md 文件链接。
 3. 回到岗位列表页，打开扩展并点击“AI分析当前页岗位匹配度”。
 4. 首次使用时确认招聘网站和模型接口的临时访问权限。
-5. 插件会依次在非活动标签页中读取最多 10 个岗位，并把“非常匹配／匹配／部分匹配／不匹配”写回列表。
-6. 悬停匹配结果查看详情；点击结果可固定或收起详情。
+5. 插件会在后台并行读取和分析当前分页已经加载的全部岗位，不创建岗位详情标签页。
+6. 悬停匹配结果或“分析失败”可查看顶层临时浮窗；点击结果可固定或收起详情。
+7. 同一页面再次点击时，只重试未分析和分析失败的岗位；刷新或重新打开页面后重新分析。
 
 浏览器安全策略要求首次绑定档案文件时由用户亲自选择；扩展不能静默选择本地简历或其他文件。
 
@@ -66,6 +68,7 @@
 - 候选人档案、页面扫描结果、投递历史导出和本地密钥均被忽略。
 - 扩展只在用户操作后临时访问当前页面，目前不申请持续读取所有网站的权限。
 - 岗位分析仅在用户确认后申请对应招聘网站和模型接口的运行时权限。
+- 匹配缓存保存在 Edge 为当前扩展管理的 `chrome.storage.local` 中，不会在项目目录生成包含 JD 或分析内容的明文文件。
 - API Key 只保存在 `chrome.storage.session`，不会传给招聘网页，浏览器重启后自动清除。
 - 发送给模型的档案会排除姓名、电话、邮箱、证件信息、文件路径等无关隐私字段。
 - 不填写密码、文件选择器、证件号、银行卡等敏感字段。
@@ -76,7 +79,7 @@
 不依赖浏览器的核心逻辑测试可以直接运行：
 
 ```powershell
-node --test tests/ai-match.test.js tests/ai-settings.test.js tests/history-storage.test.js tests/matcher.test.js tests/semantic-provider.test.js tests/xlsx-export.test.js
+node --test tests/background-job-match.test.js tests/job-fetch.test.js tests/job-list-moka.test.js tests/ai-match.test.js tests/ai-settings.test.js tests/history-storage.test.js tests/matcher.test.js tests/semantic-provider.test.js tests/xlsx-export.test.js
 ```
 
 DOM、日期组件和履历上下文测试需要先在本地安装 Playwright，然后运行完整测试集：
@@ -93,14 +96,14 @@ node --test tests/*.test.js
 
 ```text
 manifest.json                  扩展清单
-background.js                 JD 获取、模型调用和匹配缓存
+background.js                 后台 JD 请求、并行模型调用、任务取消和匹配缓存
 popup.*                       扫描、填充与投递历史界面
 options.*                     候选人档案编辑器
 ai.*                          AI、Prompt 和 Skill 设置页
 content.js                    页面识别、填写和验证
 job-list.js                   岗位列表识别与匹配结果注入
-job-detail.js                 岗位详情页 JD 提取
 shared/ai-match.js            档案脱敏、Prompt 和模型结果校验
+shared/job-fetch.js           Moka 接口解密和通用 HTML 文本提取
 shared/profile.js             档案默认值、迁移和校验
 shared/matcher.js             字段语义匹配
 shared/storage.js             档案与投递历史存储
@@ -115,7 +118,7 @@ tests/                        自动化测试和网页夹具
 - 当前飞书招聘真实页面受浏览器安全策略影响，日期组件尚未完成真实环境验证。
 - 岗位匹配当前只支持 OpenAI-compatible Chat Completions 接口。
 - Anthropic 原生 Messages API（`/v1/messages`）暂不支持；如果服务商另行提供 OpenAI-compatible 地址，则可以使用兼容地址。
-- Moka 岗位列表会依据岗位卡片和 `#/job/...` 路由精确识别；其他网站仍使用通用规则，没有标准链接或使用复杂虚拟列表的网站需要单独适配。
+- Moka 岗位列表会依据岗位卡片和 `#/job/...` 路由精确识别并调用后台接口；其他网站使用通用 HTML 请求，只有浏览器渲染后才出现 JD 的网站需要单独适配。
 - 本地 Skill 当前支持 Markdown、TXT 和 JSON；不会执行 Skill 中的脚本或工具调用。
 - 文件上传、验证码和最终提交必须由用户完成。
 

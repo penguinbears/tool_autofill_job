@@ -1,7 +1,7 @@
 # 秋招智能填表助手：固定模块字典
 
 > 本文件是讨论需求时的模块命名标准。  
-> 当前对应扩展版本：v0.14.4。模块编号一旦发布便保持稳定；即使按钮文字或代码文件调整，也继续使用原编号。
+> 当前对应扩展版本：v0.15.0。模块编号一旦发布便保持稳定；即使按钮文字或代码文件调整，也继续使用原编号。
 
 ## 最简单的使用方式
 
@@ -59,7 +59,7 @@
 | `CORE-CUSTOM` | 自定义必填题 | 将无法归类的必填题按页面标签保存和复用 | `content.js` 的 `customKeyFor()` 与 `additional.custom_answers` |
 | `CORE-SAFETY` | 自动填写安全边界 | 跳过敏感信息、文件控件和提交按钮，默认保留网页已有值 | `content.js` 的 `SKIP_TYPES`、`setField()` |
 | `CORE-JOB-LIST` | 岗位列表识别 | 通过 Moka 专用适配或通用规则识别岗位链接，向列表注入匹配徽标和详情浮层 | `job-list.js` |
-| `CORE-JD-EXTRACT` | 岗位 JD 提取 | 在非活动标签页中加载详情并提取主要文本 | `background.js`、`job-detail.js` |
+| `CORE-JD-EXTRACT` | 岗位 JD 提取 | 不创建标签页；通过 Moka 后台接口或通用 HTTP 请求取得并规范化 JD | `background.js`、`shared/job-fetch.js` |
 | `CORE-AI-MATCH` | AI 岗位匹配 | 对档案脱敏，调用 Chat Completions，校验结果并计算四档等级 | `background.js`、`shared/ai-match.js` |
 
 ## 三、标准档案与持久化模块
@@ -183,9 +183,9 @@ job-application-autofill/
 ├── ai.html / .css / .js          # AI、Prompt 与 Skill 设置页面
 ├── content.js                    # 网页扫描、填写、下拉、日期和重复区块
 ├── job-list.js                   # 岗位列表和匹配结果界面
-├── job-detail.js                 # JD 文本提取
 ├── shared/
 │   ├── ai-match.js               # 档案脱敏和匹配结果规范
+│   ├── job-fetch.js              # Moka 接口解密和通用 HTML 文本提取
 │   ├── matcher.js                # 字段别名和匹配规则
 │   ├── profile.js                # 档案默认结构、迁移与校验
 │   ├── storage.js                # 档案同步与投递记录存储

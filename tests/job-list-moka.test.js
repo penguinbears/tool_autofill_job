@@ -39,7 +39,8 @@ function mokaCard(title, jobId, degree) {
 
 const cards = [
   mokaCard("市场开发-深圳", "035adb3e-207f-4317-a189-9548ba242b51", "本科"),
-  mokaCard("工业设计-深圳", "8df6e40c-f456-4225-acaa-0e6f619a3dca", "本科")
+  mokaCard("工业设计-深圳", "8df6e40c-f456-4225-acaa-0e6f619a3dca", "本科"),
+  ...Array.from({ length: 28 }, (_, index) => mokaCard(`测试岗位-${index + 3}`, `generated-job-${index + 3}`, "本科"))
 ];
 let listener;
 const context = vm.createContext({
@@ -51,6 +52,11 @@ const context = vm.createContext({
     hash: "#/jobs"
   },
   getComputedStyle() { return { display: "block", visibility: "visible" }; },
+  window: {
+    innerWidth: 1280,
+    innerHeight: 800,
+    addEventListener() {}
+  },
   document: {
     querySelectorAll(selector) {
       if (selector === "[class*='card-content-']") return cards;
@@ -76,7 +82,7 @@ let response;
 listener({ type: "JOB_MATCH_DISCOVER" }, {}, (value) => { response = value; });
 
 assert(response && response.ok, "Moka discovery did not respond successfully");
-assert(response.jobs.length === 2, "Moka job cards were not detected exclusively");
+assert(response.jobs.length === 30, "Moka discovery did not return every job on the current page");
 assert(response.jobs[0].title === "市场开发-深圳", "Moka title selector returned the wrong text");
 assert(response.jobs[0].url.endsWith("#/job/035adb3e-207f-4317-a189-9548ba242b51"), "Moka hash route was removed from the job URL");
 assert(response.jobs.every((job) => job.platform === "moka"), "Moka jobs were not tagged with their platform");

@@ -56,6 +56,25 @@
     });
   }
 
+  async function readJobPlatformContext(tab) {
+    if (!tab || !tab.id || !/^https:\/\/app\.mokahr\.com\//i.test(tab.url || "")) return null;
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: "MAIN",
+      func: () => {
+        const data = window.TurboApply && window.TurboApply.data || {};
+        const org = data.org || {};
+        return {
+          provider: "moka",
+          siteId: data.siteId || org.siteId || null,
+          orgId: org.id || data.orgId || null,
+          aesIv: data.aesIv || ""
+        };
+      }
+    });
+    return results && results[0] && results[0].result || null;
+  }
+
   function permissionOrigin(rawUrl) {
     const url = new URL(rawUrl);
     if (!/^https?:$/i.test(url.protocol)) throw new Error("仅支持 HTTP 或 HTTPS 地址");
@@ -86,9 +105,15 @@
       assertRuntimeHostPermissionsLoaded();
       const tab = await activeTab();
       if (!tab || !tab.id) throw new Error("没有可用的当前网页");
+      const platformContext = await readJobPlatformContext(tab);
+      if (/^https:\/\/app\.mokahr\.com\//i.test(tab.url || "") && (!platformContext || !platformContext.aesIv)) {
+        throw new Error("无法读取 Moka 岗位接口参数，请刷新招聘列表页后重试");
+      }
       await ensureJobListInjected(tab.id);
       const discovered = await chrome.tabs.sendMessage(tab.id, { type: "JOB_MATCH_DISCOVER" });
-      const jobs = discovered && discovered.jobs || [];
+      const jobs = (discovered && discovered.jobs || []).map((job) => (
+        job.platform === "moka" ? Object.assign({}, job, { platformContext }) : job
+      ));
       if (!jobs.length) throw new Error("当前页面没有识别到岗位详情链接");
 
       const origins = Array.from(new Set([
@@ -102,8 +127,12 @@
         type: "JOB_MATCH_START",
         jobs
       });
-      if (!response || !response.ok || !response.count) {
+      if (!response || !response.ok) {
         throw new Error(response && response.error || "岗位分析任务没有启动");
+      }
+      if (!response.count) {
+        setStatus(`当前页面 ${response.skipped || jobs.length} 个岗位均已分析完成，无需重复分析。`);
+        return;
       }
       setStatus(`已开始分析 ${response.count} 个岗位。结果会直接显示在当前招聘列表中。`);
     } catch (error) {
